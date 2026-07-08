@@ -1,0 +1,18 @@
+﻿NAMES                    STATUS                    IMAGE
+ecommerce-notification   Up 19 seconds             e-commerce-notification
+ecommerce-inventory      Up 19 seconds             e-commerce-inventory
+ecommerce-payment        Up 19 seconds             e-commerce-payment
+ecommerce-shipping       Up 19 seconds             e-commerce-shipping
+ecommerce-kafka          Up 30 seconds             confluentinc/cp-kafka:7.5.0
+ecommerce-frontend       Up 30 seconds             e-commerce-frontend
+ecommerce-zookeeper      Up 30 seconds             confluentinc/cp-zookeeper:7.5.0
+ecommerce-postgres       Up 30 seconds (healthy)   postgres:16
+NAME                     IMAGE                             COMMAND                  SERVICE        CREATED          STATUS                    PORTS
+ecommerce-frontend       e-commerce-frontend               "/docker-entrypoint.ΓÇª"   frontend       34 seconds ago   Up 33 seconds             0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+ecommerce-inventory      e-commerce-inventory              "java -jar app.jar"      inventory      34 seconds ago   Up 21 seconds             0.0.0.0:18081->8081/tcp, [::]:18081->8081/tcp
+ecommerce-kafka          confluentinc/cp-kafka:7.5.0       "/etc/confluent/dockΓÇª"   kafka          34 seconds ago   Up 32 seconds             0.0.0.0:9092->9092/tcp, [::]:9092->9092/tcp
+ecommerce-notification   e-commerce-notification           "java -jar app.jar"      notification   34 seconds ago   Up 21 seconds             0.0.0.0:8084->8084/tcp, [::]:8084->8084/tcp
+ecommerce-payment        e-commerce-payment                "java -jar app.jar"      payment        34 seconds ago   Up 21 seconds             0.0.0.0:8082->8082/tcp, [::]:8082->8082/tcp
+ecommerce-postgres       postgres:16                       "docker-entrypoint.sΓÇª"   postgres       34 seconds ago   Up 33 seconds (healthy)   0.0.0.0:5433->5432/tcp, [::]:5433->5432/tcp
+ecommerce-shipping       e-commerce-shipping               "java -jar app.jar"      shipping       34 seconds ago   Up 21 seconds             0.0.0.0:8083->8083/tcp, [::]:8083->8083/tcp
+ecommerce-zookeeper      confluentinc/cp-zookeeper:7.5.0   "/etc/confluent/dockΓÇª"   zookeeper      34 seconds ago   Up 33 seconds             0.0.0.0:2181->2181/tcp, [::]:2181->2181/tcp

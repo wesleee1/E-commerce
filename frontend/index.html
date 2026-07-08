@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecommerce Pro - Shop Smart</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-content">
+                <div class="logo">
+                    <h1>🛍️ EcommercePro</h1>
+                </div>
+                <div class="nav-links">
+                    <a href="#" onclick="showPage('home')">Home</a>
+                    <a href="#" onclick="showPage('shop')">Shop</a>
+                    <a href="#" onclick="showPage('orders')">My Orders</a>
+                    <a href="#" onclick="showPage('admin')">Inventory</a>
+                    <a href="#" onclick="showPage('notifications')">Notifications</a>
+                </div>
+                <div class="nav-actions">
+                    <button class="cart-btn" onclick="showPage('cart')">
+                        🛒 Cart <span class="cart-count">0</span>
+                    </button>
+                    <button class="profile-btn" onclick="toggleProfile()">👤</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container main-content">
+        <!-- Home Page -->
+        <div id="home" class="page active">
+            <div class="hero">
+                <div class="hero-content">
+                    <h2>Welcome to EcommercePro</h2>
+                    <p>Discover amazing products at unbeatable prices</p>
+                    <button class="btn btn-primary" onclick="showPage('shop')">Start Shopping</button>
+                </div>
+            </div>
+
+            <div class="featured-section">
+                <h3>Featured Products</h3>
+                <div class="products-grid" id="featured-products">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stat-card">
+                    <h4>📦</h4>
+                    <p>Products in Stock</p>
+                    <span class="stat-number" id="stat-products">0</span>
+                </div>
+                <div class="stat-card">
+                    <h4>✅</h4>
+                    <p>Total Orders</p>
+                    <span class="stat-number" id="stat-orders">0</span>
+                </div>
+                <div class="stat-card">
+                    <h4>😊</h4>
+                    <p>Happy Customers</p>
+                    <span class="stat-number">5000+</span>
+                </div>
+                <div class="stat-card">
+                    <h4>🚀</h4>
+                    <p>Fast Shipping</p>
+                    <span class="stat-number">24-48h</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shop Page -->
+        <div id="shop" class="page">
+            <div class="shop-header">
+                <h2>Our Products</h2>
+                <div class="shop-controls">
+                    <input type="text" id="searchInput" placeholder="Search products..." onkeyup="filterProducts()">
+                    <select id="categoryFilter" onchange="filterProducts()">
+                        <option value="">All Categories</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="clothing">Clothing</option>
+                        <option value="books">Books</option>
+                        <option value="home">Home & Garden</option>
+                    </select>
+                    <select id="sortFilter" onchange="sortProducts()">
+                        <option value="name">Sort by Name</option>
+                        <option value="price-asc">Price: Low to High</option>
+                        <option value="price-desc">Price: High to Low</option>
+                        <option value="stock">Stock Status</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="products-grid" id="products-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Shopping Cart Page -->
+        <div id="cart" class="page">
+            <h2>Shopping Cart</h2>
+            <div class="cart-content">
+                <div class="cart-items" id="cart-items">
+                    <!-- Populated by JavaScript -->
+                </div>
+                <div class="cart-summary">
+                    <h3>Order Summary</h3>
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">$0.00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Shipping:</span>
+                        <span id="shipping">$0.00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Tax:</span>
+                        <span id="tax">$0.00</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="total">$0.00</span>
+                    </div>
+                    <button class="btn btn-primary full-width" onclick="proceedToCheckout()">
+                        Proceed to Checkout
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checkout Page -->
+        <div id="checkout" class="page">
+            <h2>Checkout</h2>
+            <div class="checkout-container">
+                <div class="checkout-form">
+                    <form onsubmit="processPayment(event)">
+                        <div class="form-section">
+                            <h3>Shipping Information</h3>
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" id="fullName" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Email</label>
+                                    <input type="email" id="email" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Phone</label>
+                                    <input type="tel" id="phone" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Address</label>
+                                <input type="text" id="address" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>City</label>
+                                    <input type="text" id="city" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>ZIP Code</label>
+                                    <input type="text" id="zipCode" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Payment Information</h3>
+                            <div class="form-group">
+                                <label>Card Holder Name</label>
+                                <input type="text" id="cardName" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Card Number</label>
+                                <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Expiry Date</label>
+                                    <input type="text" id="expiryDate" placeholder="MM/YY" maxlength="5" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>CVV</label>
+                                    <input type="text" id="cvv" placeholder="123" maxlength="3" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Shipping Method</h3>
+                            <div class="radio-group">
+                                <label>
+                                    <input type="radio" name="shipping" value="standard" checked>
+                                    <span>Standard Shipping - $5.00 (5-7 days)</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="shipping" value="express">
+                                    <span>Express Shipping - $15.00 (2-3 days)</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="shipping" value="overnight">
+                                    <span>Overnight Shipping - $30.00 (Next day)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary full-width">Complete Payment</button>
+                        <button type="button" class="btn btn-secondary full-width" onclick="showPage('cart')">Back to Cart</button>
+                    </form>
+                </div>
+
+                <div class="checkout-summary">
+                    <h3>Order Summary</h3>
+                    <div id="checkout-items"></div>
+                    <div class="summary-row">
+                        <span>Subtotal:</span>
+                        <span id="checkout-subtotal">$0.00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Shipping:</span>
+                        <span id="checkout-shipping">$0.00</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Tax:</span>
+                        <span id="checkout-tax">$0.00</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total:</span>
+                        <span id="checkout-total">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orders Page -->
+        <div id="orders" class="page">
+            <h2>My Orders</h2>
+            <div class="orders-container" id="orders-list">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Notifications Page -->
+        <div id="notifications" class="page">
+            <h2>Notifications & Email</h2>
+            <div class="notifications-container">
+                <div class="notifications-list" id="notifications-list">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <div class="notification-settings">
+                    <h3>Notification Preferences</h3>
+                    <div class="settings-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked> Order Confirmations
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked> Shipping Updates
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" checked> Delivery Notifications
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox"> Promotional Emails
+                        </label>
+                    </div>
+                    <button class="btn btn-primary">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Management Page -->
+        <div id="admin" class="page">
+            <h2>Inventory Management</h2>
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchAdminTab('view')">View Inventory</button>
+                <button class="tab-btn" onclick="switchAdminTab('add')">Add Product</button>
+                <button class="tab-btn" onclick="switchAdminTab('analytics')">Analytics</button>
+            </div>
+
+            <!-- View Inventory Tab -->
+            <div id="view-tab" class="admin-tab active">
+                <div class="inventory-controls">
+                    <input type="text" id="inventorySearch" placeholder="Search inventory..." onkeyup="filterInventory()">
+                    <button class="btn btn-secondary" onclick="refreshInventory()">🔄 Refresh</button>
+                </div>
+                <table class="inventory-table">
+                    <thead>
+                        <tr>
+                            <th>Product ID</th>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Stock</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-table-body">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Add Product Tab -->
+            <div id="add-tab" class="admin-tab">
+                <form onsubmit="addProduct(event)" class="product-form">
+                    <div class="form-section">
+                        <h3>Add New Product</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Product Name</label>
+                                <input type="text" id="prodName" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select id="prodCategory" required>
+                                    <option>Electronics</option>
+                                    <option>Clothing</option>
+                                    <option>Books</option>
+                                    <option>Home & Garden</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Price</label>
+                                <input type="number" id="prodPrice" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Stock Quantity</label>
+                                <input type="number" id="prodStock" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="prodDescription" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Product</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="analytics-tab" class="admin-tab">
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <h4>Total Products</h4>
+                        <p class="analytics-number" id="analytics-total">0</p>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>Low Stock Items</h4>
+                        <p class="analytics-number" id="analytics-lowstock">0</p>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>Out of Stock</h4>
+                        <p class="analytics-number" id="analytics-outofstock">0</p>
+                    </div>
+                    <div class="analytics-card">
+                        <h4>Total Inventory Value</h4>
+                        <p class="analytics-number" id="analytics-value">$0</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h4>Stock Distribution by Category</h4>
+                    <div id="stock-chart" class="chart">
+                        <!-- Chart will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div class="modal-body">
+                <div class="modal-image">
+                    <img id="modal-image" src="" alt="">
+                </div>
+                <div class="modal-info">
+                    <h2 id="modal-name"></h2>
+                    <p id="modal-category" class="category-badge"></p>
+                    <p id="modal-description"></p>
+                    <div class="price-section">
+                        <span class="price" id="modal-price"></span>
+                        <span id="modal-stock" class="stock-status"></span>
+                    </div>
+                    <div class="quantity-selector">
+                        <button onclick="decreaseQuantity()">−</button>
+                        <input type="number" id="quantity" value="1" min="1">
+                        <button onclick="increaseQuantity()">+</button>
+                    </div>
+                    <button class="btn btn-primary full-width" onclick="addToCart()">Add to Cart</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 EcommercePro. All rights reserved.</p>
+            <p>Contact: support@ecommercepro.com | Phone: 1-800-SHOP-PRO</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
