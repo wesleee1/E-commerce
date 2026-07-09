@@ -40,7 +40,12 @@ public class InventoryService {
         }
         product.setStock(product.getStock() - quantity);
         productRepository.save(product);
-        String payload = String.format("{\"eventType\":\"STOCK_RESERVED\",\"orderId\":%d,\"productId\":%d,\"quantity\":%d}", orderId, productId, quantity);
+        
+        // Calculate total amount for this product
+        double itemAmount = product.getPrice() * quantity;
+        String payload = String.format("{\"eventType\":\"STOCK_RESERVED\",\"orderId\":%d,\"productId\":%d,\"quantity\":%d,\"amount\":%.2f}", 
+            orderId, productId, quantity, itemAmount);
+        
         KafkaTemplate<String, String> kafkaTemplate = kafkaTemplateProvider.getIfAvailable();
         if (kafkaTemplate != null) {
             kafkaTemplate.send("ecommerce.events", payload);
