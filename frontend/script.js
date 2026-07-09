@@ -573,7 +573,9 @@ async function processPayment(event) {
         });
 
         if (!orderResponse.ok) {
-            showToast('Failed to create order', 'error');
+            const errorPayload = await orderResponse.json().catch(() => null);
+            const errorMessage = errorPayload?.error || 'Failed to create order';
+            showToast(errorMessage, 'error');
             if (submitButton) submitButton.disabled = false;
             return;
         }
