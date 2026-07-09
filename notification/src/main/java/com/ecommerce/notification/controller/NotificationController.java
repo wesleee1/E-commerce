@@ -24,19 +24,22 @@ public class NotificationController {
         try {
             Long orderId = ((Number) emailData.get("orderId")).longValue();
             String email = (String) emailData.get("email");
+            String customerName = emailData.get("customerName") == null ? null : emailData.get("customerName").toString();
             
-            NotificationLog log = notificationService.sendNotification(orderId, 
-                String.format("Order %d confirmation sent to %s", orderId, email));
+            NotificationLog log = notificationService.sendOrderEmail(orderId, email, customerName);
             
             Map<String, Object> response = new HashMap<>();
             response.put("id", log.getId());
             response.put("orderId", orderId);
             response.put("email", email);
+            response.put("customerName", customerName);
             response.put("status", "sent");
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
 

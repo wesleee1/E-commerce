@@ -528,6 +528,14 @@ async function processPayment(event) {
         return;
     }
 
+    // Gather payment and shipping details before building the order payload.
+    const fullName = getInputValue('fullName');
+    const email = getInputValue('email');
+    const phone = getInputValue('phone');
+    const address = getInputValue('address');
+    const city = getInputValue('city');
+    const zipCode = getInputValue('zipCode');
+
     const shippingMethod = document.querySelector('input[name="shipping"]:checked')?.value || 'standard';
     const pricing = calculatePricing(shippingMethod);
 
@@ -627,14 +635,6 @@ async function processPayment(event) {
             }
         }
 
-        // Gather payment details for submission
-        const fullName = getInputValue('fullName');
-        const email = getInputValue('email');
-        const phone = getInputValue('phone');
-        const address = getInputValue('address');
-        const city = getInputValue('city');
-        const zipCode = getInputValue('zipCode');
-
         // Process payment
         const paymentResponse = await fetch(`${API_BASE_URLs.payment}/process`, {
             method: 'POST',
@@ -664,15 +664,8 @@ async function processPayment(event) {
                 })
             });
 
-            // Send notification email
-            await fetch(`${API_BASE_URLs.notification}/send-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: orderId,
-                    email: email
-                })
-            });
+            // Trigger customer email/notification as soon as the order is placed.
+            await sendOrderPlacedEmail(orderId, email, fullName);
 
             // Save order locally
             appState.orders.unshift(mapOrderForDisplay({
@@ -721,6 +714,29 @@ async function processPayment(event) {
         // Re-enable submit button on error
         const submitButton = event.target.querySelector('button[type="submit"]');
         if (submitButton) submitButton.disabled = false;
+    }
+}
+
+async function sendOrderPlacedEmail(orderId, email, fullName) {
+    try {
+        const response = await fetch(`${API_BASE_URLs.notification}/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orderId: orderId,
+                email: email,
+                customerName: fullName
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Notification service rejected the email request');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.warn('Order email could not be sent:', error.message);
+        return null;
     }
 }
 
