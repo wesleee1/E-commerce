@@ -584,16 +584,43 @@ async function processPayment(event) {
 // ===== ORDERS =====
 async function loadOrders() {
     try {
-        const response = await fetch(`${API_BASE_URLs.payment}/orders`);
+        // Fetch from Order Service (source of truth for all orders)
+        const response = await fetch(`${API_BASE_URLs.order}`);
         if (response.ok) {
-            const orders = await response.json();
+            let orders = await response.json();
+            
+            // Transform Order Service response to match display format if needed
+            if (orders && !Array.isArray(orders)) {
+                orders = [orders];
+            }
+            
+            // Ensure orders have required fields for display
+            orders = orders.map(order => ({
+                id: order.id || order.orderId,
+                orderId: order.id || order.orderId,
+                customerId: order.customerId,
+                productId: order.productId,
+                quantity: order.quantity,
+                amount: order.amount,
+                shippingMethod: order.shippingMethod,
+                status: order.status || 'PENDING',
+                timestamp: order.timestamp || new Date().toISOString(),
+                items: order.items || [{
+                    id: order.productId,
+                    quantity: order.quantity,
+                    price: order.amount / order.quantity
+                }]
+            }));
+            
             appState.orders = orders;
             displayOrders(orders);
         } else {
+            console.warn('Failed to fetch orders from Order Service, using local cache');
             displayOrders(appState.orders);
         }
     } catch (error) {
-        console.error('Error loading orders:', error);
+        console.error('Error loading orders from Order Service:', error);
+        console.warn('Falling back to local order cache');
         displayOrders(appState.orders);
     }
 }
