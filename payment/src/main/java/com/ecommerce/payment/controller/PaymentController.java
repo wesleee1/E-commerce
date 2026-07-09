@@ -22,7 +22,7 @@ public class PaymentController {
     @PostMapping("/process")
     public ResponseEntity<Map<String, Object>> processPayment(@RequestBody Map<String, Object> orderData) {
         try {
-            Long orderId = System.currentTimeMillis();
+            Long orderId = ((Number) orderData.get("orderId")).longValue();
             double totalAmount = ((Number) orderData.get("totalAmount")).doubleValue();
             
             PaymentRecord record = paymentService.processPayment(orderId, totalAmount, "CARD");

@@ -18,7 +18,9 @@ let appState = {
         email: 'guest@example.com'
     },
     notifications: [],
-    inventory: []
+    inventory: [],
+    wishlist: [],
+    appliedPromo: null
 };
 
 // ===== LOCAL STORAGE =====
@@ -30,8 +32,21 @@ function loadState() {
     const saved = localStorage.getItem('appState');
     if (saved) {
         appState = JSON.parse(saved);
-        updateCartCount();
     }
+    appState.cart = Array.isArray(appState.cart) ? appState.cart : [];
+    appState.orders = Array.isArray(appState.orders) ? appState.orders : [];
+    appState.products = Array.isArray(appState.products) ? appState.products : [];
+    appState.notifications = Array.isArray(appState.notifications) ? appState.notifications : [];
+    appState.inventory = Array.isArray(appState.inventory) ? appState.inventory : [];
+    appState.wishlist = Array.isArray(appState.wishlist) ? appState.wishlist : [];
+    appState.currentUser = {
+        name: appState.currentUser?.name || 'Guest User',
+        email: appState.currentUser?.email || 'guest@example.com'
+    };
+    appState.appliedPromo = appState.appliedPromo || null;
+
+    updateCartCount();
+    updateWishlistCount();
 }
 
 // ===== PAGE NAVIGATION =====
@@ -44,10 +59,19 @@ function showPage(pageId) {
     // Load data for specific pages
     if (pageId === 'shop') loadProducts();
     if (pageId === 'admin') loadInventory();
+    if (pageId === 'wishlist') displayWishlist();
     if (pageId === 'orders') loadOrders();
     if (pageId === 'notifications') loadNotifications();
-    if (pageId === 'home') loadFeaturedProducts();
-    if (pageId === 'checkout') attachShippingListeners();
+    if (pageId === 'home') {
+        loadFeaturedProducts();
+        renderRecommendationRail();
+        renderHomeSignals();
+    }
+    if (pageId === 'checkout') {
+        attachShippingListeners();
+        displayCheckoutSummary();
+    }
+    if (pageId === 'cart') displayCart();
 
     window.scrollTo(0, 0);
 }
@@ -59,6 +83,8 @@ async function loadProducts() {
         if (response.ok) {
             appState.products = await response.json();
             displayProducts(appState.products);
+            renderRecommendationRail();
+            renderHomeSignals();
             updateStats();
         }
     } catch (error) {
@@ -120,6 +146,8 @@ function displayMockProducts() {
     ];
     appState.products = mockProducts;
     displayProducts(mockProducts);
+    renderRecommendationRail();
+    renderHomeSignals();
     updateStats();
 }
 
@@ -132,22 +160,7 @@ function displayProducts(products) {
         return;
     }
 
-    container.innerHTML = products.map(product => `
-        <div class="product-card" onclick="openProductModal(${product.id})">
-            <div class="product-image">📦</div>
-            <div class="product-info">
-                <div class="product-category">${product.category}</div>
-                <h3 class="product-name">${product.name}</h3>
-                <p class="product-description">${product.description}</p>
-                <div class="product-footer">
-                    <div class="product-price">$${product.price.toFixed(2)}</div>
-                    <div class="product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock < 10 ? 'low-stock' : 'in-stock'}">
-                        ${product.stock === 0 ? 'Out of Stock' : product.stock < 10 ? 'Low Stock' : `${product.stock} in stock`}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    container.innerHTML = products.map(product => renderProductCard(product)).join('');
 }
 
 function loadFeaturedProducts() {
@@ -156,22 +169,7 @@ function loadFeaturedProducts() {
     }
     const featured = appState.products.slice(0, 3);
     const container = document.getElementById('featured-products');
-    container.innerHTML = featured.map(product => `
-        <div class="product-card" onclick="openProductModal(${product.id})">
-            <div class="product-image">📦</div>
-            <div class="product-info">
-                <div class="product-category">${product.category}</div>
-                <h3 class="product-name">${product.name}</h3>
-                <p class="product-description">${product.description}</p>
-                <div class="product-footer">
-                    <div class="product-price">$${product.price.toFixed(2)}</div>
-                    <div class="product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock < 10 ? 'low-stock' : 'in-stock'}">
-                        ${product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    container.innerHTML = featured.map(product => renderProductCard(product, true)).join('');
 }
 
 function filterProducts() {
@@ -264,14 +262,70 @@ function addToCart() {
 
     saveState();
     updateCartCount();
+    renderRecommendationRail();
+    renderHomeSignals();
     showToast(`Added ${quantity} item(s) to cart`, 'success');
     closeModal();
+}
+
+function quickAddToCart(productId) {
+    const product = appState.products.find(p => p.id === productId);
+    if (!product || product.stock === 0) {
+        showToast('Product out of stock', 'error');
+        return;
+    }
+
+    const existing = appState.cart.find(item => item.id === productId);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        appState.cart.push({ ...product, quantity: 1 });
+    }
+
+    saveState();
+    updateCartCount();
+    renderRecommendationRail();
+    renderHomeSignals();
+    showToast(`${product.name} added to cart`, 'success');
+}
+
+function toggleWishlist(productId) {
+    const exists = appState.wishlist.includes(productId);
+    if (exists) {
+        appState.wishlist = appState.wishlist.filter(id => id !== productId);
+        showToast('Removed from wishlist', 'success');
+    } else {
+        appState.wishlist.push(productId);
+        showToast('Saved to wishlist', 'success');
+    }
+
+    saveState();
+    updateWishlistCount();
+    displayProducts(appState.products);
+    displayWishlist();
+    renderRecommendationRail();
+    renderHomeSignals();
+}
+
+function toggleWishlistFromModal() {
+    if (!appState.selectedProduct) {
+        return;
+    }
+    toggleWishlist(appState.selectedProduct.id);
 }
 
 // ===== SHOPPING CART =====
 function updateCartCount() {
     const count = appState.cart.reduce((sum, item) => sum + item.quantity, 0);
     document.querySelector('.cart-count').textContent = count;
+}
+
+function updateWishlistCount() {
+    const count = appState.wishlist.length;
+    const badge = document.querySelector('.wishlist-count');
+    if (badge) {
+        badge.textContent = count;
+    }
 }
 
 function displayCart() {
@@ -286,6 +340,7 @@ function displayCart() {
             </div>
         `;
         updateCartSummary();
+        renderCartInsights();
         return;
     }
 
@@ -307,6 +362,7 @@ function displayCart() {
     `).join('');
 
     updateCartSummary();
+    renderCartInsights();
 }
 
 function updateCartQuantity(productId, newQuantity) {
@@ -344,19 +400,24 @@ function removeFromCart(productId) {
     saveState();
     updateCartCount();
     displayCart();
+    renderRecommendationRail();
+    renderHomeSignals();
     showToast('Item removed from cart', 'success');
 }
 
 function updateCartSummary() {
-    const subtotal = appState.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const shipping = 5;
-    const tax = subtotal * 0.1;
-    const total = subtotal + shipping + tax;
+    const pricing = calculatePricing('standard');
 
-    document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-    document.getElementById('shipping').textContent = `$${shipping.toFixed(2)}`;
-    document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
-    document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('subtotal').textContent = formatCurrency(pricing.subtotal);
+    document.getElementById('discount').textContent = `-${formatCurrency(pricing.discount)}`;
+    document.getElementById('shipping').textContent = formatCurrency(pricing.shipping);
+    document.getElementById('tax').textContent = formatCurrency(pricing.tax);
+    document.getElementById('total').textContent = formatCurrency(pricing.total);
+
+    const promoFeedback = document.getElementById('promo-feedback');
+    if (promoFeedback) {
+        promoFeedback.textContent = pricing.promoLabel;
+    }
 }
 
 function proceedToCheckout() {
@@ -390,21 +451,24 @@ function displayCheckoutSummary() {
 }
 
 function updateCheckoutCalculations() {
-    const subtotal = appState.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const shippingMethod = document.querySelector('input[name="shipping"]:checked')?.value || 'standard';
-    const shipping = getShippingCost(shippingMethod);
-    const tax = subtotal * 0.1;
-    const total = subtotal + shipping + tax;
+    const pricing = calculatePricing(shippingMethod);
 
     const subtotalEl = document.getElementById('checkout-subtotal');
+    const discountEl = document.getElementById('checkout-discount');
     const shippingEl = document.getElementById('checkout-shipping');
     const taxEl = document.getElementById('checkout-tax');
     const totalEl = document.getElementById('checkout-total');
+    const promoLabel = document.getElementById('checkout-promo-label');
+    const deliveryEstimate = document.getElementById('checkout-delivery-estimate');
 
-    if (subtotalEl) subtotalEl.textContent = `$${subtotal.toFixed(2)}`;
-    if (shippingEl) shippingEl.textContent = `$${shipping.toFixed(2)}`;
-    if (taxEl) taxEl.textContent = `$${tax.toFixed(2)}`;
-    if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+    if (subtotalEl) subtotalEl.textContent = formatCurrency(pricing.subtotal);
+    if (discountEl) discountEl.textContent = `-${formatCurrency(pricing.discount)}`;
+    if (shippingEl) shippingEl.textContent = formatCurrency(pricing.shipping);
+    if (taxEl) taxEl.textContent = formatCurrency(pricing.tax);
+    if (totalEl) totalEl.textContent = formatCurrency(pricing.total);
+    if (promoLabel) promoLabel.textContent = pricing.promoCode || 'No promo';
+    if (deliveryEstimate) deliveryEstimate.textContent = getDeliveryEstimate(shippingMethod);
 }
 
 function attachShippingListeners() {
@@ -455,13 +519,32 @@ async function processPayment(event) {
     }
 
     const shippingMethod = document.querySelector('input[name="shipping"]:checked')?.value || 'standard';
+    const pricing = calculatePricing(shippingMethod);
 
     const orderData = {
         customerId: 1,
+        customerName: fullName,
+        customerEmail: email,
+        phone: phone,
+        addressLine: address,
+        city: city,
+        zipCode: zipCode,
         productId: appState.cart[0]?.id || 1,
         quantity: appState.cart.reduce((sum, item) => sum + item.quantity, 0),
-        amount: parseFloat(document.getElementById('checkout-total').textContent.replace('$', '')),
-        shippingMethod: shippingMethod
+        amount: pricing.total,
+        shippingMethod: shippingMethod,
+        promoCode: appState.appliedPromo?.code || null,
+        orderNote: document.getElementById('orderNote').value?.trim() || '',
+        subtotalAmount: pricing.subtotal,
+        shippingCost: pricing.shipping,
+        taxAmount: pricing.tax,
+        items: appState.cart.map(item => ({
+            productId: item.id,
+            productName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            lineTotal: item.price * item.quantity
+        }))
     };
 
     try {
@@ -548,21 +631,33 @@ async function processPayment(event) {
             });
 
             // Save order locally
-            appState.orders.push({
-                id: orderId,
-                customerId: 1,
-                productId: appState.cart[0]?.id,
-                quantity: appState.cart.reduce((sum, item) => sum + item.quantity, 0),
-                amount: orderData.amount,
-                shippingMethod: shippingMethod,
+            appState.orders.unshift(mapOrderForDisplay({
+                ...createdOrder,
+                customerName: fullName,
+                customerEmail: email,
+                phone: phone,
+                addressLine: address,
+                city: city,
+                zipCode: zipCode,
+                promoCode: appState.appliedPromo?.code || null,
+                orderNote: document.getElementById('orderNote').value?.trim() || '',
+                subtotalAmount: pricing.subtotal,
+                shippingCost: pricing.shipping,
+                taxAmount: pricing.tax,
+                amount: pricing.total,
+                items: orderData.items,
                 status: 'confirmed',
-                timestamp: new Date().toISOString()
-            });
+                createdAt: createdOrder.createdAt || new Date().toISOString()
+            }));
 
             // Clear cart
             appState.cart = [];
+            appState.appliedPromo = null;
             saveState();
             updateCartCount();
+            updateWishlistCount();
+            renderRecommendationRail();
+            renderHomeSignals();
 
             showToast('Order placed successfully!', 'success');
             
@@ -571,6 +666,9 @@ async function processPayment(event) {
                 showPage('orders');
                 loadOrders();
             }, 1500);
+        } else {
+            showToast('Payment service rejected the transaction', 'error');
+            if (submitButton) submitButton.disabled = false;
         }
     } catch (error) {
         console.error('Error processing payment:', error);
@@ -584,45 +682,16 @@ async function processPayment(event) {
 // ===== ORDERS =====
 async function loadOrders() {
     try {
-        // Fetch from Order Service (source of truth for all orders)
         const response = await fetch(`${API_BASE_URLs.order}`);
         if (response.ok) {
             let orders = await response.json();
-            
-            // Transform Order Service response to match display format
             if (orders && !Array.isArray(orders)) {
                 orders = [orders];
             }
-            
-            // Ensure orders have all required fields for display
-            orders = orders.map(order => {
-                const itemPrice = order.amount / (order.quantity || 1);
-                const product = appState.products.find(p => p.id === order.productId) || {
-                    name: `Product #${order.productId}`,
-                    price: itemPrice
-                };
-                
-                return {
-                    id: order.id || order.orderId,
-                    orderId: order.id || order.orderId,
-                    customerId: order.customerId,
-                    productId: order.productId,
-                    quantity: order.quantity,
-                    amount: order.amount,
-                    totalAmount: order.amount,
-                    shippingMethod: order.shippingMethod,
-                    status: order.status || 'PENDING',
-                    timestamp: order.timestamp || new Date().toISOString(),
-                    items: [{
-                        id: order.productId,
-                        name: product.name,
-                        quantity: order.quantity,
-                        price: itemPrice
-                    }]
-                };
-            });
+            orders = orders.map(mapOrderForDisplay);
             
             appState.orders = orders;
+            saveState();
             displayOrders(orders);
         } else {
             console.warn('Failed to fetch orders from Order Service, using local cache');
@@ -646,19 +715,19 @@ function displayOrders(orders) {
                 <button class="btn btn-primary" onclick="showPage('shop')">Start Shopping</button>
             </div>
         `;
+        updateOrderOverview([]);
         return;
     }
 
     container.innerHTML = orders.map(order => {
-        // Safely get order properties with defaults
         const orderId = order.id || order.orderId || 'Unknown';
         const orderStatus = (order.status || 'PENDING').toUpperCase();
-        const orderDate = order.timestamp ? new Date(order.timestamp).toLocaleDateString() : 'N/A';
+        const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A';
         const totalAmount = order.totalAmount || order.amount || 0;
         const items = order.items || [];
         
         return `
-        <div class="order-card">
+        <div class="order-card advanced-order-card">
             <div class="order-header">
                 <div>
                     <div class="order-id">Order #${orderId}</div>
@@ -666,29 +735,73 @@ function displayOrders(orders) {
                 </div>
                 <span class="order-status status-${(order.status || 'pending').toLowerCase()}">${orderStatus}</span>
             </div>
+            <div class="order-meta-grid">
+                <div><span>Tracking</span><strong>${order.trackingNumber || 'Pending assignment'}</strong></div>
+                <div><span>ETA</span><strong>${order.estimatedDelivery || getDeliveryEstimate(order.shippingMethod)}</strong></div>
+                <div><span>Shipping</span><strong>${(order.shippingMethod || 'standard').toUpperCase()}</strong></div>
+                <div><span>Promo</span><strong>${order.promoCode || 'None'}</strong></div>
+            </div>
             <div class="order-items">
                 ${items.length > 0 
                     ? items.map(item => `
                     <div class="order-item">
-                        <span class="order-item-name">${item.name || `Product #${item.id}`}</span>
+                        <span class="order-item-name">${item.productName || item.name || `Product #${item.productId || item.id}`}</span>
                         <span class="order-item-qty">x${item.quantity || 0}</span>
-                        <span class="order-item-price">$${((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
+                        <span class="order-item-price">${formatCurrency(item.lineTotal || ((item.unitPrice || item.price || 0) * (item.quantity || 0)))}</span>
                     </div>
                 `).join('')
                     : '<div class="order-item"><em>No items</em></div>'
                 }
             </div>
+            <div class="order-secondary-row">
+                <div>
+                    <span>Ship to</span>
+                    <strong>${order.customerName || appState.currentUser.name}</strong>
+                    <p>${order.addressLine || 'Address unavailable'}${order.city ? `, ${order.city}` : ''}${order.zipCode ? ` ${order.zipCode}` : ''}</p>
+                </div>
+                <div>
+                    <span>Delivery note</span>
+                    <strong>${order.orderNote || 'No special instructions'}</strong>
+                    <p>${order.customerEmail || appState.currentUser.email}</p>
+                </div>
+            </div>
             <div class="order-footer">
-                <div class="order-total">Total: $${parseFloat(totalAmount).toFixed(2)}</div>
+                <div class="order-total">Total: ${formatCurrency(parseFloat(totalAmount))}</div>
                 <button class="btn btn-primary" onclick="trackOrder(${orderId})">Track Order</button>
             </div>
         </div>
         `;
     }).join('');
+
+    updateOrderOverview(orders);
 }
 
 function trackOrder(orderId) {
-    showToast(`Tracking order #${orderId}. Shipment will be dispatched soon!`, 'success');
+    const order = appState.orders.find(item => item.id === orderId || item.orderId === orderId);
+    const trackingNumber = order?.trackingNumber || 'Pending assignment';
+    const eta = order?.estimatedDelivery || 'Shipment will be dispatched soon';
+    showToast(`Tracking ${trackingNumber}. ETA: ${eta}`, 'success');
+}
+
+function displayWishlist() {
+    const container = document.getElementById('wishlist-grid');
+    if (!container) {
+        return;
+    }
+
+    const products = appState.products.filter(product => appState.wishlist.includes(product.id));
+    if (products.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state-panel">
+                <p style="font-size: 3rem;">♡</p>
+                <p>No favorites yet</p>
+                <button class="btn btn-primary" onclick="showPage('shop')">Discover products</button>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = products.map(product => renderProductCard(product, true)).join('');
 }
 
 // ===== NOTIFICATIONS =====
@@ -902,6 +1015,7 @@ function updateStats() {
 
     document.getElementById('stat-products').textContent = totalProducts;
     document.getElementById('stat-orders').textContent = totalOrders;
+    renderHomeSignals();
 }
 
 // ===== ON PAGE LOAD =====
@@ -909,6 +1023,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadState();
     showPage('home');
     loadFeaturedProducts();
+    renderRecommendationRail();
+    renderHomeSignals();
     updateStats();
 
     // Watch for cart page displays
@@ -922,6 +1038,269 @@ document.addEventListener('DOMContentLoaded', () => {
 
     observer.observe(document.getElementById('cart'), { attributes: true, attributeFilter: ['class'] });
 });
+
+function renderProductCard(product, spotlight = false) {
+    const inWishlist = appState.wishlist.includes(product.id);
+    return `
+        <div class="product-card ${spotlight ? 'spotlight-card' : ''}" onclick="openProductModal(${product.id})">
+            <div class="product-image">📦</div>
+            <div class="product-info">
+                <div class="product-topline">
+                    <div class="product-category">${product.category}</div>
+                    ${spotlight ? '<span class="product-badge">Top Pick</span>' : ''}
+                </div>
+                <h3 class="product-name">${product.name}</h3>
+                <p class="product-description">${product.description}</p>
+                <div class="product-footer">
+                    <div class="product-price">${formatCurrency(product.price)}</div>
+                    <div class="product-stock ${product.stock === 0 ? 'out-of-stock' : product.stock < 10 ? 'low-stock' : 'in-stock'}">
+                        ${product.stock === 0 ? 'Out of Stock' : product.stock < 10 ? 'Low Stock' : `${product.stock} in stock`}
+                    </div>
+                </div>
+                <div class="product-card-actions">
+                    <button class="btn btn-primary" onclick="event.stopPropagation(); quickAddToCart(${product.id})">Quick Add</button>
+                    <button class="btn btn-secondary" onclick="event.stopPropagation(); toggleWishlist(${product.id})">${inWishlist ? 'Saved' : 'Wishlist'}</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function applyPromoCode() {
+    const input = document.getElementById('promoCodeInput');
+    const code = input?.value?.trim().toUpperCase();
+    if (!code) {
+        showToast('Enter a promo code first', 'error');
+        return;
+    }
+
+    const promo = getPromoDetails(code, appState.cart.reduce((sum, item) => sum + item.price * item.quantity, 0), appState.cart.reduce((sum, item) => sum + item.quantity, 0));
+    if (!promo) {
+        showToast('Promo code not recognized', 'error');
+        return;
+    }
+
+    appState.appliedPromo = promo;
+    saveState();
+    updateCartSummary();
+    updateCheckoutCalculations();
+    showToast(`${promo.code} applied`, 'success');
+}
+
+function getPromoDetails(code, subtotal, itemCount) {
+    const promoCode = (code || '').toUpperCase();
+    if (promoCode === 'SAVE10') {
+        return { code: 'SAVE10', label: '10% off cart value', type: 'percent', value: 0.10 };
+    }
+    if (promoCode === 'SHIPFREE') {
+        return { code: 'SHIPFREE', label: 'Free shipping unlocked', type: 'shipping', value: 1 };
+    }
+    if (promoCode === 'BULK20' && itemCount >= 5 && subtotal >= 100) {
+        return { code: 'BULK20', label: '20% off bulk basket', type: 'percent', value: 0.20 };
+    }
+    return null;
+}
+
+function calculatePricing(shippingMethod) {
+    const subtotal = appState.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const itemCount = appState.cart.reduce((sum, item) => sum + item.quantity, 0);
+    const baseShipping = appState.cart.length === 0 ? 0 : getShippingCost(shippingMethod);
+
+    let discount = 0;
+    let shipping = baseShipping;
+    let promoLabel = 'No promo applied';
+    let promoCode = null;
+
+    if (appState.appliedPromo) {
+        promoCode = appState.appliedPromo.code;
+        promoLabel = `${appState.appliedPromo.code} · ${appState.appliedPromo.label}`;
+
+        if (appState.appliedPromo.type === 'percent') {
+            discount = subtotal * appState.appliedPromo.value;
+        }
+        if (appState.appliedPromo.type === 'shipping') {
+            discount = baseShipping;
+            shipping = 0;
+        }
+    }
+
+    if (promoCode === 'BULK20' && (itemCount < 5 || subtotal < 100)) {
+        appState.appliedPromo = null;
+        promoLabel = 'BULK20 requires 5 items and $100 subtotal';
+        promoCode = null;
+        saveState();
+    }
+
+    const taxableSubtotal = Math.max(0, subtotal - discount);
+    const tax = taxableSubtotal * 0.1;
+    const total = taxableSubtotal + shipping + tax;
+
+    return {
+        subtotal,
+        discount,
+        shipping,
+        tax,
+        total,
+        promoLabel,
+        promoCode
+    };
+}
+
+function getDeliveryEstimate(shippingMethod) {
+    switch ((shippingMethod || 'standard').toLowerCase()) {
+        case 'overnight':
+            return 'Tomorrow by 9 PM';
+        case 'express':
+            return '2-3 business days';
+        default:
+            return '5-7 business days';
+    }
+}
+
+function renderRecommendationRail() {
+    const container = document.getElementById('recommended-products');
+    if (!container) {
+        return;
+    }
+
+    const categoryPool = [...appState.cart, ...appState.products.filter(product => appState.wishlist.includes(product.id))]
+        .map(product => product.category)
+        .filter(Boolean);
+    const favoriteCategory = categoryPool[0] || appState.products[0]?.category;
+
+    const recommendations = appState.products
+        .filter(product => !appState.cart.some(item => item.id === product.id))
+        .filter(product => !favoriteCategory || product.category === favoriteCategory)
+        .slice(0, 3);
+
+    if (recommendations.length === 0) {
+        container.innerHTML = '<div class="empty-state-panel"><p>Recommendations will appear as you shop.</p></div>';
+        return;
+    }
+
+    container.innerHTML = recommendations.map(product => renderProductCard(product, true)).join('');
+}
+
+function renderCartInsights() {
+    const panel = document.getElementById('cart-insights');
+    if (!panel) {
+        return;
+    }
+
+    if (appState.cart.length === 0) {
+        panel.innerHTML = '<p>Your cart insights will appear here once you add items.</p>';
+        return;
+    }
+
+    const topCategory = getTopCategoryFromProducts(appState.cart);
+    const pricing = calculatePricing('standard');
+    panel.innerHTML = `
+        <div class="insight-card">
+            <span>Top category</span>
+            <strong>${topCategory || 'Mixed basket'}</strong>
+        </div>
+        <div class="insight-card">
+            <span>Estimated reward</span>
+            <strong>${Math.round(pricing.total / 10)} pts</strong>
+        </div>
+        <div class="insight-card">
+            <span>Basket signal</span>
+            <strong>${appState.cart.length > 2 ? 'High intent' : 'Building'}</strong>
+        </div>
+    `;
+}
+
+function renderHomeSignals() {
+    const orderCountEl = document.getElementById('hero-order-count');
+    const wishlistCountEl = document.getElementById('hero-wishlist-count');
+    const inventoryHealthEl = document.getElementById('hero-inventory-health');
+    const topCategoryEl = document.getElementById('hero-top-category');
+
+    if (orderCountEl) orderCountEl.textContent = appState.orders.length;
+    if (wishlistCountEl) wishlistCountEl.textContent = appState.wishlist.length;
+    if (inventoryHealthEl) {
+        const lowStock = appState.products.filter(product => product.stock > 0 && product.stock < 10).length;
+        inventoryHealthEl.textContent = lowStock > 2 ? 'Watch low stock' : 'Stable';
+    }
+    if (topCategoryEl) topCategoryEl.textContent = getTopCategoryFromProducts([...appState.cart, ...appState.products.filter(product => appState.wishlist.includes(product.id))]) || 'Electronics';
+}
+
+function getTopCategoryFromProducts(products) {
+    const counts = products.reduce((accumulator, product) => {
+        if (!product.category) {
+            return accumulator;
+        }
+        accumulator[product.category] = (accumulator[product.category] || 0) + 1;
+        return accumulator;
+    }, {});
+
+    return Object.entries(counts).sort((left, right) => right[1] - left[1])[0]?.[0] || null;
+}
+
+function mapOrderForDisplay(order) {
+    const items = Array.isArray(order.items) && order.items.length > 0
+        ? order.items.map(item => ({
+            ...item,
+            productId: item.productId || item.id,
+            productName: item.productName || item.name || `Product #${item.productId || item.id}`,
+            unitPrice: item.unitPrice || item.price || 0,
+            lineTotal: item.lineTotal || ((item.unitPrice || item.price || 0) * (item.quantity || 0))
+        }))
+        : [{
+            productId: order.productId,
+            productName: appState.products.find(product => product.id === order.productId)?.name || `Product #${order.productId}`,
+            quantity: order.quantity,
+            unitPrice: (order.amount || 0) / Math.max(order.quantity || 1, 1),
+            lineTotal: order.subtotalAmount || order.amount || 0
+        }];
+
+    return {
+        id: order.id || order.orderId,
+        orderId: order.id || order.orderId,
+        customerId: order.customerId,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        phone: order.phone,
+        addressLine: order.addressLine,
+        city: order.city,
+        zipCode: order.zipCode,
+        productId: order.productId,
+        quantity: order.quantity || items.reduce((sum, item) => sum + (item.quantity || 0), 0),
+        amount: order.amount,
+        subtotalAmount: order.subtotalAmount || items.reduce((sum, item) => sum + (item.lineTotal || 0), 0),
+        shippingCost: order.shippingCost || 0,
+        taxAmount: order.taxAmount || 0,
+        totalAmount: order.amount || 0,
+        shippingMethod: order.shippingMethod,
+        promoCode: order.promoCode,
+        orderNote: order.orderNote,
+        trackingNumber: order.trackingNumber,
+        estimatedDelivery: order.estimatedDelivery,
+        status: order.status || 'PENDING',
+        createdAt: order.createdAt || order.timestamp || new Date().toISOString(),
+        items
+    };
+}
+
+function updateOrderOverview(orders) {
+    const totalOrdersEl = document.getElementById('orders-total-count');
+    const totalSpendEl = document.getElementById('orders-total-spend');
+    const activeTrackersEl = document.getElementById('orders-active-trackers');
+    const favoriteCategoryEl = document.getElementById('orders-favorite-category');
+
+    const spend = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const activeTrackers = orders.filter(order => ['PENDING', 'CONFIRMED', 'SHIPPED'].includes((order.status || '').toUpperCase())).length;
+    const favoriteCategory = getTopCategoryFromProducts(orders.flatMap(order => order.items.map(item => ({ category: appState.products.find(product => product.id === item.productId)?.category || 'Mixed' }))));
+
+    if (totalOrdersEl) totalOrdersEl.textContent = orders.length;
+    if (totalSpendEl) totalSpendEl.textContent = formatCurrency(spend);
+    if (activeTrackersEl) activeTrackersEl.textContent = activeTrackers;
+    if (favoriteCategoryEl) favoriteCategoryEl.textContent = favoriteCategory || 'Mixed';
+}
+
+function toggleProfile() {
+    showToast(`Signed in as ${appState.currentUser.name}`, 'info');
+}
 
 // Close modal on outside click
 window.onclick = function(event) {

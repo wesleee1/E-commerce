@@ -30,6 +30,13 @@ public class OrderController {
             response.put("amount", createdOrder.getAmount());
             response.put("shippingMethod", createdOrder.getShippingMethod());
             response.put("status", createdOrder.getStatus());
+            response.put("trackingNumber", createdOrder.getTrackingNumber());
+            response.put("estimatedDelivery", createdOrder.getEstimatedDelivery());
+            response.put("createdAt", createdOrder.getCreatedAt());
+            response.put("subtotalAmount", createdOrder.getSubtotalAmount());
+            response.put("shippingCost", createdOrder.getShippingCost());
+            response.put("taxAmount", createdOrder.getTaxAmount());
+            response.put("items", createdOrder.getItems());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {

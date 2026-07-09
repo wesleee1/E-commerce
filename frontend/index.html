@@ -17,11 +17,15 @@
                 <div class="nav-links">
                     <a href="#" onclick="showPage('home')">Home</a>
                     <a href="#" onclick="showPage('shop')">Shop</a>
+                    <a href="#" onclick="showPage('wishlist')">Wishlist</a>
                     <a href="#" onclick="showPage('orders')">My Orders</a>
                     <a href="#" onclick="showPage('admin')">Inventory</a>
                     <a href="#" onclick="showPage('notifications')">Notifications</a>
                 </div>
                 <div class="nav-actions">
+                    <button class="wishlist-btn" onclick="showPage('wishlist')">
+                        Favorites <span class="wishlist-count">0</span>
+                    </button>
                     <button class="cart-btn" onclick="showPage('cart')">
                         🛒 Cart <span class="cart-count">0</span>
                     </button>
@@ -35,17 +39,78 @@
     <div class="container main-content">
         <!-- Home Page -->
         <div id="home" class="page active">
-            <div class="hero">
+            <div class="hero hero-split">
                 <div class="hero-content">
-                    <h2>Welcome to EcommercePro</h2>
-                    <p>Discover amazing products at unbeatable prices</p>
-                    <button class="btn btn-primary" onclick="showPage('shop')">Start Shopping</button>
+                    <p class="eyebrow">Event-driven commerce, redesigned</p>
+                    <h2>Shop a faster storefront with smarter order intelligence</h2>
+                    <p>Curated products, promo-aware checkout, favorites, and a real multi-item order trail backed by PostgreSQL and Kafka.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary" onclick="showPage('shop')">Explore Collection</button>
+                        <button class="btn btn-secondary" onclick="showPage('orders')">Track Recent Orders</button>
+                    </div>
+                </div>
+                <div class="hero-panel">
+                    <div class="hero-panel-head">
+                        <span>Live commerce pulse</span>
+                        <strong>Today</strong>
+                    </div>
+                    <div class="hero-metric-grid">
+                        <div class="hero-metric-card">
+                            <span>Orders Routed</span>
+                            <strong id="hero-order-count">0</strong>
+                        </div>
+                        <div class="hero-metric-card">
+                            <span>Favorites Saved</span>
+                            <strong id="hero-wishlist-count">0</strong>
+                        </div>
+                        <div class="hero-metric-card">
+                            <span>Inventory Health</span>
+                            <strong id="hero-inventory-health">Stable</strong>
+                        </div>
+                        <div class="hero-metric-card accent">
+                            <span>Best Route</span>
+                            <strong id="hero-top-category">Electronics</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="signal-strip">
+                <div class="signal-card">
+                    <span>Smart checkout</span>
+                    <strong>Promo engine + delivery notes</strong>
+                </div>
+                <div class="signal-card">
+                    <span>Persistent favorites</span>
+                    <strong>Build a shortlist before buying</strong>
+                </div>
+                <div class="signal-card">
+                    <span>Order telemetry</span>
+                    <strong>Tracking numbers and delivery estimates</strong>
                 </div>
             </div>
 
             <div class="featured-section">
-                <h3>Featured Products</h3>
+                <div class="section-heading-row">
+                    <div>
+                        <p class="section-kicker">Featured now</p>
+                        <h3>High-conviction picks</h3>
+                    </div>
+                    <button class="btn btn-secondary" onclick="showPage('shop')">Browse all</button>
+                </div>
                 <div class="products-grid" id="featured-products">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="featured-section recommendation-section">
+                <div class="section-heading-row">
+                    <div>
+                        <p class="section-kicker">Recommended</p>
+                        <h3>Built from your cart and favorites</h3>
+                    </div>
+                </div>
+                <div class="products-grid" id="recommended-products">
                     <!-- Populated by JavaScript -->
                 </div>
             </div>
@@ -110,9 +175,21 @@
                 </div>
                 <div class="cart-summary">
                     <h3>Order Summary</h3>
+                    <div class="promo-box">
+                        <label for="promoCodeInput">Promo Code</label>
+                        <div class="promo-box-actions">
+                            <input type="text" id="promoCodeInput" placeholder="SAVE10 or SHIPFREE">
+                            <button class="btn btn-secondary" onclick="applyPromoCode()">Apply</button>
+                        </div>
+                        <p id="promo-feedback" class="promo-feedback">No promo applied</p>
+                    </div>
                     <div class="summary-row">
                         <span>Subtotal:</span>
                         <span id="subtotal">$0.00</span>
+                    </div>
+                    <div class="summary-row discount-row">
+                        <span>Discount:</span>
+                        <span id="discount">-$0.00</span>
                     </div>
                     <div class="summary-row">
                         <span>Shipping:</span>
@@ -129,7 +206,22 @@
                     <button class="btn btn-primary full-width" onclick="proceedToCheckout()">
                         Proceed to Checkout
                     </button>
+                    <div class="cart-insights" id="cart-insights"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Wishlist Page -->
+        <div id="wishlist" class="page">
+            <div class="section-heading-row">
+                <div>
+                    <p class="section-kicker">Favorites</p>
+                    <h2>Your shortlist</h2>
+                </div>
+                <button class="btn btn-secondary" onclick="showPage('shop')">Back to shop</button>
+            </div>
+            <div class="products-grid" id="wishlist-grid">
+                <!-- Populated by JavaScript -->
             </div>
         </div>
 
@@ -211,6 +303,14 @@
                             </div>
                         </div>
 
+                        <div class="form-section">
+                            <h3>Order Notes</h3>
+                            <div class="form-group">
+                                <label>Delivery Note</label>
+                                <textarea id="orderNote" rows="3" placeholder="Leave at concierge, gift wrap this order, call on arrival..."></textarea>
+                            </div>
+                        </div>
+
                         <button type="submit" class="btn btn-primary full-width">Complete Payment</button>
                         <button type="button" class="btn btn-secondary full-width" onclick="showPage('cart')">Back to Cart</button>
                     </form>
@@ -218,10 +318,24 @@
 
                 <div class="checkout-summary">
                     <h3>Order Summary</h3>
+                    <div class="checkout-intelligence">
+                        <div>
+                            <span>Active promo</span>
+                            <strong id="checkout-promo-label">No promo</strong>
+                        </div>
+                        <div>
+                            <span>Delivery estimate</span>
+                            <strong id="checkout-delivery-estimate">5-7 business days</strong>
+                        </div>
+                    </div>
                     <div id="checkout-items"></div>
                     <div class="summary-row">
                         <span>Subtotal:</span>
                         <span id="checkout-subtotal">$0.00</span>
+                    </div>
+                    <div class="summary-row discount-row">
+                        <span>Discount:</span>
+                        <span id="checkout-discount">-$0.00</span>
                     </div>
                     <div class="summary-row">
                         <span>Shipping:</span>
@@ -242,6 +356,24 @@
         <!-- Orders Page -->
         <div id="orders" class="page">
             <h2>My Orders</h2>
+            <div class="order-overview-grid">
+                <div class="overview-card">
+                    <span>Total Orders</span>
+                    <strong id="orders-total-count">0</strong>
+                </div>
+                <div class="overview-card">
+                    <span>Total Spend</span>
+                    <strong id="orders-total-spend">$0.00</strong>
+                </div>
+                <div class="overview-card">
+                    <span>Active Trackers</span>
+                    <strong id="orders-active-trackers">0</strong>
+                </div>
+                <div class="overview-card">
+                    <span>Favorite Category</span>
+                    <strong id="orders-favorite-category">-</strong>
+                </div>
+            </div>
             <div class="orders-container" id="orders-list">
                 <!-- Populated by JavaScript -->
             </div>
@@ -399,7 +531,10 @@
                         <input type="number" id="quantity" value="1" min="1">
                         <button onclick="increaseQuantity()">+</button>
                     </div>
-                    <button class="btn btn-primary full-width" onclick="addToCart()">Add to Cart</button>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary full-width" onclick="addToCart()">Add to Cart</button>
+                        <button class="btn btn-secondary full-width" onclick="toggleWishlistFromModal()">Save to Wishlist</button>
+                    </div>
                 </div>
             </div>
         </div>
