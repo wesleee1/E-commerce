@@ -589,28 +589,38 @@ async function loadOrders() {
         if (response.ok) {
             let orders = await response.json();
             
-            // Transform Order Service response to match display format if needed
+            // Transform Order Service response to match display format
             if (orders && !Array.isArray(orders)) {
                 orders = [orders];
             }
             
-            // Ensure orders have required fields for display
-            orders = orders.map(order => ({
-                id: order.id || order.orderId,
-                orderId: order.id || order.orderId,
-                customerId: order.customerId,
-                productId: order.productId,
-                quantity: order.quantity,
-                amount: order.amount,
-                shippingMethod: order.shippingMethod,
-                status: order.status || 'PENDING',
-                timestamp: order.timestamp || new Date().toISOString(),
-                items: order.items || [{
-                    id: order.productId,
+            // Ensure orders have all required fields for display
+            orders = orders.map(order => {
+                const itemPrice = order.amount / (order.quantity || 1);
+                const product = appState.products.find(p => p.id === order.productId) || {
+                    name: `Product #${order.productId}`,
+                    price: itemPrice
+                };
+                
+                return {
+                    id: order.id || order.orderId,
+                    orderId: order.id || order.orderId,
+                    customerId: order.customerId,
+                    productId: order.productId,
                     quantity: order.quantity,
-                    price: order.amount / order.quantity
-                }]
-            }));
+                    amount: order.amount,
+                    totalAmount: order.amount,
+                    shippingMethod: order.shippingMethod,
+                    status: order.status || 'PENDING',
+                    timestamp: order.timestamp || new Date().toISOString(),
+                    items: [{
+                        id: order.productId,
+                        name: product.name,
+                        quantity: order.quantity,
+                        price: itemPrice
+                    }]
+                };
+            });
             
             appState.orders = orders;
             displayOrders(orders);
@@ -628,7 +638,7 @@ async function loadOrders() {
 function displayOrders(orders) {
     const container = document.getElementById('orders-list');
 
-    if (orders.length === 0) {
+    if (!orders || orders.length === 0) {
         container.innerHTML = `
             <div style="text-align: center; padding: 3rem;">
                 <p style="font-size: 3rem;">📦</p>
@@ -639,30 +649,42 @@ function displayOrders(orders) {
         return;
     }
 
-    container.innerHTML = orders.map(order => `
+    container.innerHTML = orders.map(order => {
+        // Safely get order properties with defaults
+        const orderId = order.id || order.orderId || 'Unknown';
+        const orderStatus = (order.status || 'PENDING').toUpperCase();
+        const orderDate = order.timestamp ? new Date(order.timestamp).toLocaleDateString() : 'N/A';
+        const totalAmount = order.totalAmount || order.amount || 0;
+        const items = order.items || [];
+        
+        return `
         <div class="order-card">
             <div class="order-header">
                 <div>
-                    <div class="order-id">Order #${order.id}</div>
-                    <div class="order-date">${new Date(order.timestamp).toLocaleDateString()}</div>
+                    <div class="order-id">Order #${orderId}</div>
+                    <div class="order-date">${orderDate}</div>
                 </div>
-                <span class="order-status status-${order.status || 'pending'}">${(order.status || 'Pending').toUpperCase()}</span>
+                <span class="order-status status-${(order.status || 'pending').toLowerCase()}">${orderStatus}</span>
             </div>
             <div class="order-items">
-                ${order.items.map(item => `
+                ${items.length > 0 
+                    ? items.map(item => `
                     <div class="order-item">
-                        <span class="order-item-name">${item.name}</span>
-                        <span class="order-item-qty">x${item.quantity}</span>
-                        <span class="order-item-price">$${(item.price * item.quantity).toFixed(2)}</span>
+                        <span class="order-item-name">${item.name || `Product #${item.id}`}</span>
+                        <span class="order-item-qty">x${item.quantity || 0}</span>
+                        <span class="order-item-price">$${((item.price || 0) * (item.quantity || 0)).toFixed(2)}</span>
                     </div>
-                `).join('')}
+                `).join('')
+                    : '<div class="order-item"><em>No items</em></div>'
+                }
             </div>
             <div class="order-footer">
-                <div class="order-total">Total: $${order.totalAmount.toFixed(2)}</div>
-                <button class="btn btn-primary" onclick="trackOrder(${order.id})">Track Order</button>
+                <div class="order-total">Total: $${parseFloat(totalAmount).toFixed(2)}</div>
+                <button class="btn btn-primary" onclick="trackOrder(${orderId})">Track Order</button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function trackOrder(orderId) {
