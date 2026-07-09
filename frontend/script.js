@@ -408,11 +408,17 @@ function removeFromCart(productId) {
 function updateCartSummary() {
     const pricing = calculatePricing('standard');
 
-    document.getElementById('subtotal').textContent = formatCurrency(pricing.subtotal);
-    document.getElementById('discount').textContent = `-${formatCurrency(pricing.discount)}`;
-    document.getElementById('shipping').textContent = formatCurrency(pricing.shipping);
-    document.getElementById('tax').textContent = formatCurrency(pricing.tax);
-    document.getElementById('total').textContent = formatCurrency(pricing.total);
+    const subtotalEl = document.getElementById('subtotal');
+    const discountEl = document.getElementById('discount');
+    const shippingEl = document.getElementById('shipping');
+    const taxEl = document.getElementById('tax');
+    const totalEl = document.getElementById('total');
+
+    if (subtotalEl) subtotalEl.textContent = formatCurrency(pricing.subtotal);
+    if (discountEl) discountEl.textContent = `-${formatCurrency(pricing.discount)}`;
+    if (shippingEl) shippingEl.textContent = formatCurrency(pricing.shipping);
+    if (taxEl) taxEl.textContent = formatCurrency(pricing.tax);
+    if (totalEl) totalEl.textContent = formatCurrency(pricing.total);
 
     const promoFeedback = document.getElementById('promo-feedback');
     if (promoFeedback) {
@@ -482,6 +488,11 @@ function attachShippingListeners() {
 }
 
 // ===== PAYMENT PROCESSING =====
+function getInputValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value?.trim() : '';
+}
+
 async function processPayment(event) {
     event.preventDefault();
 
@@ -492,16 +503,16 @@ async function processPayment(event) {
     }
 
     // Validate required fields
-    const fullName = document.getElementById('fullName').value?.trim();
-    const email = document.getElementById('email').value?.trim();
-    const phone = document.getElementById('phone').value?.trim();
-    const address = document.getElementById('address').value?.trim();
-    const city = document.getElementById('city').value?.trim();
-    const zipCode = document.getElementById('zipCode').value?.trim();
-    const cardName = document.getElementById('cardName').value?.trim();
-    const cardNumber = document.getElementById('cardNumber').value?.trim();
-    const expiryDate = document.getElementById('expiryDate').value?.trim();
-    const cvv = document.getElementById('cvv').value?.trim();
+    const fullName = getInputValue('fullName');
+    const email = getInputValue('email');
+    const phone = getInputValue('phone');
+    const address = getInputValue('address');
+    const city = getInputValue('city');
+    const zipCode = getInputValue('zipCode');
+    const cardName = getInputValue('cardName');
+    const cardNumber = getInputValue('cardNumber');
+    const expiryDate = getInputValue('expiryDate');
+    const cvv = getInputValue('cvv');
 
     if (!fullName || !email || !phone || !address || !city || !zipCode) {
         showToast('Please fill in all shipping information', 'error');
@@ -534,7 +545,7 @@ async function processPayment(event) {
         amount: pricing.total,
         shippingMethod: shippingMethod,
         promoCode: appState.appliedPromo?.code || null,
-        orderNote: document.getElementById('orderNote').value?.trim() || '',
+        orderNote: getInputValue('orderNote'),
         subtotalAmount: pricing.subtotal,
         shippingCost: pricing.shipping,
         taxAmount: pricing.tax,
@@ -549,7 +560,7 @@ async function processPayment(event) {
 
     try {
         // Disable submit button to prevent double clicks
-        const submitButton = event.target.querySelector('button[type="submit"]');
+        const submitButton = event.target?.querySelector('button[type="submit"]');
         if (submitButton) submitButton.disabled = true;
 
         showToast('Processing order...', 'info');
@@ -563,7 +574,6 @@ async function processPayment(event) {
 
         if (!orderResponse.ok) {
             showToast('Failed to create order', 'error');
-            const submitButton = event.target.querySelector('button[type="submit"]');
             if (submitButton) submitButton.disabled = false;
             return;
         }
@@ -584,12 +594,12 @@ async function processPayment(event) {
         }
 
         // Gather payment details for submission
-        const fullName = document.getElementById('fullName').value?.trim();
-        const email = document.getElementById('email').value?.trim();
-        const phone = document.getElementById('phone').value?.trim();
-        const address = document.getElementById('address').value?.trim();
-        const city = document.getElementById('city').value?.trim();
-        const zipCode = document.getElementById('zipCode').value?.trim();
+        const fullName = getInputValue('fullName');
+        const email = getInputValue('email');
+        const phone = getInputValue('phone');
+        const address = getInputValue('address');
+        const city = getInputValue('city');
+        const zipCode = getInputValue('zipCode');
 
         // Process payment
         const paymentResponse = await fetch(`${API_BASE_URLs.payment}/process`, {
@@ -640,7 +650,7 @@ async function processPayment(event) {
                 city: city,
                 zipCode: zipCode,
                 promoCode: appState.appliedPromo?.code || null,
-                orderNote: document.getElementById('orderNote').value?.trim() || '',
+                orderNote: getInputValue('orderNote'),
                 subtotalAmount: pricing.subtotal,
                 shippingCost: pricing.shipping,
                 taxAmount: pricing.tax,
@@ -669,6 +679,7 @@ async function processPayment(event) {
         } else {
             showToast('Payment service rejected the transaction', 'error');
             if (submitButton) submitButton.disabled = false;
+            return;
         }
     } catch (error) {
         console.error('Error processing payment:', error);
