@@ -47,6 +47,24 @@ services:
       retries: 5
       start_period: 30s
 
+  order:
+    build:
+      context: ./order
+      dockerfile: Dockerfile
+    container_name: ecommerce-order
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/orderdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: Pgroot123!
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8085:8085"
+
   inventory:
     build:
       context: ./inventory

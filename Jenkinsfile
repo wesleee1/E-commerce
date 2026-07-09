@@ -41,6 +41,14 @@ pipeline {
             }
         }
 
+        stage('Build Order') {
+            steps {
+                dir('order') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
         stage('Docker Compose') {
             steps {
                 sh '''

@@ -1,5 +1,6 @@
 // ===== CONFIGURATION =====
 const API_BASE_URLs = {
+    order: 'http://localhost:8085/api/order',
     inventory: 'http://localhost:18081/api/inventory',
     payment: 'http://localhost:8082/api/payment',
     shipping: 'http://localhost:8083/api/shipping',
@@ -456,20 +457,11 @@ async function processPayment(event) {
     const shippingMethod = document.querySelector('input[name="shipping"]:checked')?.value || 'standard';
 
     const orderData = {
-        customerName: fullName,
-        email: email,
-        phone: phone,
-        address: address,
-        city: city,
-        zipCode: zipCode,
-        cardName: cardName,
-        cardNumber: cardNumber.slice(-4),
-        expiryDate: expiryDate,
-        shippingMethod: shippingMethod,
-        items: appState.cart,
-        totalAmount: parseFloat(document.getElementById('checkout-total').textContent.replace('$', '')),
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        customerId: 1,
+        productId: appState.cart[0]?.id || 1,
+        quantity: appState.cart.reduce((sum, item) => sum + item.quantity, 0),
+        amount: parseFloat(document.getElementById('checkout-total').textContent.replace('$', '')),
+        shippingMethod: shippingMethod
     };
 
     try {
@@ -479,39 +471,69 @@ async function processPayment(event) {
 
         showToast('Processing order...', 'info');
 
+        // Create order via Order Service (publishes ORDER_CREATED event)
+        const orderResponse = await fetch(`${API_BASE_URLs.order}/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+
+        if (!orderResponse.ok) {
+            showToast('Failed to create order', 'error');
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = false;
+            return;
+        }
+
+        const createdOrder = await orderResponse.json();
+        const orderId = createdOrder.orderId;
+
         // Reserve stock
         for (const item of appState.cart) {
             const reserveResponse = await fetch(`${API_BASE_URLs.inventory}/reserve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `productId=${item.id}&quantity=${item.quantity}&orderId=${Date.now()}`
+                body: `productId=${item.id}&quantity=${item.quantity}&orderId=${orderId}`
             });
             if (!reserveResponse.ok) {
                 console.warn(`Warning: Stock reservation may have failed for product ${item.id}`);
             }
         }
 
+        // Gather payment details for submission
+        const fullName = document.getElementById('fullName').value?.trim();
+        const email = document.getElementById('email').value?.trim();
+        const phone = document.getElementById('phone').value?.trim();
+        const address = document.getElementById('address').value?.trim();
+        const city = document.getElementById('city').value?.trim();
+        const zipCode = document.getElementById('zipCode').value?.trim();
+
         // Process payment
         const paymentResponse = await fetch(`${API_BASE_URLs.payment}/process`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderData)
+            body: JSON.stringify({
+                orderId: orderId,
+                customerName: fullName,
+                email: email,
+                phone: phone,
+                address: address,
+                city: city,
+                zipCode: zipCode,
+                shippingMethod: shippingMethod,
+                totalAmount: orderData.amount,
+                status: 'pending'
+            })
         });
 
         if (paymentResponse.ok) {
-            const orderId = await paymentResponse.json();
-            
             // Create shipment
             await fetch(`${API_BASE_URLs.shipping}/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderId: orderId,
-                    customerName: orderData.customerName,
-                    address: orderData.address,
-                    city: orderData.city,
-                    zipCode: orderData.zipCode,
-                    shippingMethod: orderData.shippingMethod
+                    shippingMethod: shippingMethod
                 })
             });
 
@@ -520,19 +542,21 @@ async function processPayment(event) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    email: orderData.email,
                     orderId: orderId,
-                    customerName: orderData.customerName,
-                    totalAmount: orderData.totalAmount,
-                    type: 'order-confirmation'
+                    email: email
                 })
             });
 
             // Save order locally
             appState.orders.push({
-                id: orderId || Date.now(),
-                ...orderData,
-                status: 'confirmed'
+                id: orderId,
+                customerId: 1,
+                productId: appState.cart[0]?.id,
+                quantity: appState.cart.reduce((sum, item) => sum + item.quantity, 0),
+                amount: orderData.amount,
+                shippingMethod: shippingMethod,
+                status: 'confirmed',
+                timestamp: new Date().toISOString()
             });
 
             // Clear cart

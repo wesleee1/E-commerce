@@ -2,7 +2,8 @@
 
 ## Project Overview
 
-This is a Spring Boot-based e-commerce microservices platform with four independently deployable services:
+This is a Spring Boot-based e-commerce microservices platform with five independently deployable services following a true event-driven architecture:
+- **Order**: Order creation and orchestration (central hub)
 - **Inventory**: Product catalog and stock reservation
 - **Payment**: Order payment tracking and processing
 - **Shipping**: Shipping lifecycle management
@@ -25,7 +26,7 @@ This is a Spring Boot-based e-commerce microservices platform with four independ
 
 ```
 .
-├── {inventory,payment,shipping,notification}/   # Spring Boot microservices
+├── {order,inventory,payment,shipping,notification}/  # Spring Boot microservices
 │   ├── pom.xml                                   # Maven build config (Java 21, Spring Boot 4.1.0)
 │   ├── Dockerfile                                # Multi-stage build
 │   ├── mvnw / mvnw.cmd                          # Maven wrapper (Windows-compatible)
@@ -47,9 +48,9 @@ This is a Spring Boot-based e-commerce microservices platform with four independ
 │   ├── index.html                                # Single-page UI
 │   └── Dockerfile                                # Simple nginx container
 ├── db/
-│   └── init.sql                                  # PostgreSQL initialization script
+│   └── init.sql                                  # PostgreSQL initialization script (5 databases)
 ├── docker-compose.yml                            # Orchestrates all services + PostgreSQL + Kafka
-├── Jenkinsfile                                   # CI/CD pipeline
+├── Jenkinsfile                                   # CI/CD pipeline (builds 5 services + frontend)
 └── docs/
     └── README.md                                 # Getting started guide
 ```
