@@ -221,7 +221,8 @@ function openProductModal(productId) {
     document.getElementById('modal-price').textContent = `$${product.price.toFixed(2)}`;
     document.getElementById('modal-stock').textContent = product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`;
     document.getElementById('modal-stock').className = `stock-status ${product.stock === 0 ? 'out-of-stock' : 'in-stock'}`;
-    document.getElementById('modal-image').src = '📦';
+    const modalImageContainer = document.querySelector('.modal-image');
+    modalImageContainer.innerHTML = '<div style="font-size: 80px; display: flex; align-items: center; justify-content: center; height: 200px;">📦</div>';
     document.getElementById('quantity').value = 1;
 
     document.getElementById('productModal').classList.add('show');
