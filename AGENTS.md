@@ -16,7 +16,7 @@ This is a Spring Boot-based e-commerce microservices platform with four independ
 | Spring Boot | 4.1.0 | Latest major version |
 | Java | 21 | LTS version, set in `<java.version>` |
 | Database | PostgreSQL 16 | Shared instance with per-service databases |
-| Message Bus | Kafka 7.5.0 | Event-driven inter-service communication |
+| Message Bus | Kafka 7.5.0 (KRaft) | Event-driven inter-service communication with KRaft consensus |
 | Build Tool | Maven 3.x | Each service has independent `pom.xml` |
 | Container Runtime | Docker | Multi-service orchestration via docker-compose |
 | CI/CD | Jenkins | Declarative pipeline (see `Jenkinsfile`) |
@@ -198,7 +198,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
 ## Inter-Service Communication
 
-### Kafka Topics
+### Kafka Topics (KRaft Mode)
+
+KRaft eliminates the need for external Zookeeper coordination. Kafka manages consensus internally.
 
 Services publish domain events to Kafka for eventual consistency:
 - `stock-reserved` (Inventory → Payment, Shipping, Notification)
@@ -364,11 +366,11 @@ Breakpoints:
 
 **Full System Health Check:**
 ```bash
-# Start all services
+# Start all services (Kafka runs in KRaft mode, no Zookeeper needed)
 docker compose up --build -d
 
 # Verify services are running
-docker ps  # Should show 8 containers (all green)
+docker ps  # Should show 7 containers (Postgres, Kafka, 4 microservices, Frontend)
 
 # Test inventory service
 curl http://localhost:18081/api/inventory/products
@@ -377,11 +379,11 @@ curl http://localhost:18081/api/inventory/products
 curl http://localhost:8080
 ```
 
-### Kafka Efficiency Testing
+### Kafka Efficiency Testing (KRaft Mode)
 
 **Monitor Kafka Messages:**
 ```bash
-# Connect to Kafka container
+# Connect to Kafka container (no Zookeeper coordination needed)
 docker exec ecommerce-kafka bash
 
 # List topics
@@ -421,12 +423,12 @@ kafka-console-consumer --bootstrap-server kafka:9092 --topic ecommerce.events --
 | Memory Usage | ~1.5GB | ✅ Healthy |
 | CPU Usage | <10% | ✅ Excellent |
 
-### Kafka Health Indicators
+### Kafka Health Indicators (KRaft)
 
 ✅ **Production-Ready Checklist:**
 - [x] All topics created and configured
-- [x] Zookeeper coordination working
-- [x] Broker health: Optimal
+- [x] KRaft consensus working (no Zookeeper needed)
+- [x] Broker/Controller health: Optimal
 - [x] Message persistence: Enabled
 - [x] Consumer group coordination: Ready
 - [x] Low message latency (<100ms)
