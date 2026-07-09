@@ -26,6 +26,11 @@ public class ShippingService {
 
     @Transactional
     public ShippingRecord shipOrder(Long orderId, String shippingMethod) {
+        List<ShippingRecord> existingShipments = shippingRepository.findByOrderId(orderId);
+        if (!existingShipments.isEmpty()) {
+            return existingShipments.get(0);
+        }
+
         String carrier = mapCarrier(shippingMethod);
         ShippingRecord record = new ShippingRecord(orderId, "SHIPPED", carrier);
         return shippingRepository.save(record);
@@ -40,7 +45,8 @@ public class ShippingService {
     }
 
     private String mapCarrier(String shippingMethod) {
-        return switch (shippingMethod) {
+        String normalizedMethod = shippingMethod == null ? "standard" : shippingMethod.toLowerCase();
+        return switch (normalizedMethod) {
             case "express" -> "FedEx Express";
             case "overnight" -> "DHL Overnight";
             default -> "Standard Courier";
@@ -55,7 +61,8 @@ public class ShippingService {
             
             if ("STOCK_RESERVED".equals(eventType)) {
                 Long orderId = eventData.get("orderId").asLong();
-                shipOrder(orderId, "STANDARD");
+                String shippingMethod = eventData.path("shippingMethod").asText("standard");
+                shipOrder(orderId, shippingMethod);
             }
         } catch (Exception e) {
             System.err.println("Error processing shipping event: " + e.getMessage());

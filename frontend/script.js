@@ -572,171 +572,84 @@ async function processPayment(event) {
 
         showToast('Processing order...', 'info');
 
-        // Create order via Order Service (publishes ORDER_CREATED event)
-        let createdOrder;
-        let orderServiceAvailable = true;
+        // Create order via Order Service.
+        const orderResponse = await fetch(`${API_BASE_URLs.order}/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
 
-        try {
-            const orderResponse = await fetch(`${API_BASE_URLs.order}/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData)
-            });
-
-            if (!orderResponse.ok) {
-                const errorPayload = await orderResponse.json().catch(() => null);
-                const errorMessage = errorPayload?.error || 'Failed to create order';
-                throw new Error(errorMessage);
-            }
-
-            createdOrder = await orderResponse.json();
-        } catch (orderError) {
-            orderServiceAvailable = false;
-            const fallbackOrderId = Date.now();
-            createdOrder = {
-                id: fallbackOrderId,
-                orderId: fallbackOrderId,
-                customerId: 1,
-                customerName: fullName,
-                customerEmail: email,
-                phone: phone,
-                addressLine: address,
-                city: city,
-                zipCode: zipCode,
-                productId: appState.cart[0]?.id || 1,
-                quantity: appState.cart.reduce((sum, item) => sum + item.quantity, 0),
-                amount: pricing.total,
-                subtotalAmount: pricing.subtotal,
-                shippingCost: pricing.shipping,
-                taxAmount: pricing.tax,
-                shippingMethod: shippingMethod,
-                promoCode: appState.appliedPromo?.code || null,
-                orderNote: getInputValue('orderNote'),
-                status: 'PENDING',
-                createdAt: new Date().toISOString(),
-                trackingNumber: `LOCAL-${fallbackOrderId}`,
-                estimatedDelivery: getDeliveryEstimate(shippingMethod),
-                items: orderData.items
-            };
-            showToast('Order service is unavailable right now. Saving the order locally.', 'info');
+        if (!orderResponse.ok) {
+            const errorPayload = await orderResponse.json().catch(() => null);
+            const errorMessage = errorPayload?.error || 'Failed to create order';
+            throw new Error(errorMessage);
         }
+
+        const createdOrder = await orderResponse.json();
 
         const orderId = createdOrder.orderId || createdOrder.id;
 
-        // Reserve stock
-        for (const item of appState.cart) {
-            const reserveResponse = await fetch(`${API_BASE_URLs.inventory}/reserve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `productId=${item.id}&quantity=${item.quantity}&orderId=${orderId}`
-            });
-            if (!reserveResponse.ok) {
-                console.warn(`Warning: Stock reservation may have failed for product ${item.id}`);
-            }
-        }
-
-        // Process payment
-        const paymentResponse = await fetch(`${API_BASE_URLs.payment}/process`, {
+        const reservationResponse = await fetch(`${API_BASE_URLs.inventory}/reserve-order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 orderId: orderId,
                 customerName: fullName,
-                email: email,
-                phone: phone,
-                address: address,
-                city: city,
-                zipCode: zipCode,
+                customerEmail: email,
                 shippingMethod: shippingMethod,
-                totalAmount: orderData.amount,
-                status: 'pending'
+                amount: orderData.amount,
+                items: orderData.items
             })
         });
 
-        if (paymentResponse.ok) {
-            // Create shipment
-            await fetch(`${API_BASE_URLs.shipping}/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: orderId,
-                    shippingMethod: shippingMethod
-                })
-            });
-
-            // Trigger customer email/notification as soon as the order is placed.
-            await sendOrderPlacedEmail(orderId, email, fullName);
-
-            // Save order locally
-            appState.orders.unshift(mapOrderForDisplay({
-                ...createdOrder,
-                customerName: fullName,
-                customerEmail: email,
-                phone: phone,
-                addressLine: address,
-                city: city,
-                zipCode: zipCode,
-                promoCode: appState.appliedPromo?.code || null,
-                orderNote: getInputValue('orderNote'),
-                subtotalAmount: pricing.subtotal,
-                shippingCost: pricing.shipping,
-                taxAmount: pricing.tax,
-                amount: pricing.total,
-                items: orderData.items,
-                status: orderServiceAvailable ? 'confirmed' : 'pending',
-                createdAt: createdOrder.createdAt || new Date().toISOString()
-            }));
-
-            // Clear cart
-            appState.cart = [];
-            appState.appliedPromo = null;
-            saveState();
-            updateCartCount();
-            updateWishlistCount();
-            renderRecommendationRail();
-            renderHomeSignals();
-
-            showToast('Order placed successfully!', 'success');
-            
-            // Show order confirmation
-            setTimeout(() => {
-                showPage('orders');
-                loadOrders();
-            }, 1500);
-        } else {
-            showToast('Payment service rejected the transaction', 'error');
-            if (submitButton) submitButton.disabled = false;
-            return;
+        if (!reservationResponse.ok) {
+            const reservationPayload = await reservationResponse.json().catch(() => null);
+            const errorMessage = reservationPayload?.error || 'Unable to reserve stock for this order';
+            throw new Error(errorMessage);
         }
+
+        // Save order locally while payment, shipping, and notification continue through Kafka.
+        appState.orders.unshift(mapOrderForDisplay({
+            ...createdOrder,
+            customerName: fullName,
+            customerEmail: email,
+            phone: phone,
+            addressLine: address,
+            city: city,
+            zipCode: zipCode,
+            promoCode: appState.appliedPromo?.code || null,
+            orderNote: getInputValue('orderNote'),
+            subtotalAmount: pricing.subtotal,
+            shippingCost: pricing.shipping,
+            taxAmount: pricing.tax,
+            amount: pricing.total,
+            items: orderData.items,
+            status: createdOrder.status || 'pending',
+            createdAt: createdOrder.createdAt || new Date().toISOString()
+        }));
+
+        // Clear cart
+        appState.cart = [];
+        appState.appliedPromo = null;
+        saveState();
+        updateCartCount();
+        updateWishlistCount();
+        renderRecommendationRail();
+        renderHomeSignals();
+
+        showToast('Order placed successfully! Payment and shipping are being processed.', 'success');
+
+        // Show order confirmation
+        setTimeout(() => {
+            showPage('orders');
+            loadOrders();
+        }, 1500);
     } catch (error) {
         console.error('Error processing payment:', error);
         showToast('Payment processing failed: ' + error.message, 'error');
         // Re-enable submit button on error
         const submitButton = event.target.querySelector('button[type="submit"]');
         if (submitButton) submitButton.disabled = false;
-    }
-}
-
-async function sendOrderPlacedEmail(orderId, email, fullName) {
-    try {
-        const response = await fetch(`${API_BASE_URLs.notification}/send-email`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                orderId: orderId,
-                email: email,
-                customerName: fullName
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Notification service rejected the email request');
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.warn('Order email could not be sent:', error.message);
-        return null;
     }
 }
 

@@ -1,0 +1,6 @@
+com\ecommerce\order\model\OrderItem.class
+com\ecommerce\order\service\OrderService.class
+com\ecommerce\order\controller\OrderController.class
+com\ecommerce\order\model\Order.class
+com\ecommerce\order\OrderApplication.class
+com\ecommerce\order\repository\OrderRepository.class

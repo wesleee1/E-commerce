@@ -30,12 +30,23 @@ public class NotificationService {
 
     @Transactional
     public NotificationLog sendNotification(Long orderId, String message) {
+        NotificationLog existingLog = findExistingNotification(orderId, message);
+        if (existingLog != null) {
+            return existingLog;
+        }
+
         NotificationLog log = new NotificationLog(orderId, "email", message);
         return notificationRepository.save(log);
     }
 
     @Transactional
     public NotificationLog sendOrderEmail(Long orderId, String recipientEmail, String customerName) {
+        String logMessage = String.format("Order %d confirmation sent to %s", orderId, recipientEmail);
+        NotificationLog existingLog = findExistingNotification(orderId, logMessage);
+        if (existingLog != null) {
+            return existingLog;
+        }
+
         String subject = String.format("Your order #%d has been placed", orderId);
         String greetingName = (customerName == null || customerName.isBlank()) ? "Customer" : customerName;
         String body = String.format(
@@ -54,7 +65,8 @@ public class NotificationService {
             mailSender.send(email);
         }
 
-        return sendNotification(orderId, String.format("Order %d confirmation sent to %s", orderId, recipientEmail));
+        NotificationLog log = new NotificationLog(orderId, "email", logMessage);
+        return notificationRepository.save(log);
     }
 
     public List<NotificationLog> getAllNotifications() {
@@ -73,14 +85,33 @@ public class NotificationService {
             
             if ("STOCK_RESERVED".equals(eventType)) {
                 Long orderId = eventData.get("orderId").asLong();
-                int quantity = eventData.get("quantity").asInt();
-                
-                String message = String.format("Order %d confirmed for %d items. Processing...", orderId, quantity);
-                sendNotification(orderId, message);
+                String customerEmail = textValue(eventData, "customerEmail");
+                String customerName = textValue(eventData, "customerName");
+
+                if (customerEmail != null && !customerEmail.isBlank()) {
+                    sendOrderEmail(orderId, customerEmail, customerName);
+                } else {
+                    int quantity = eventData.path("quantity").asInt();
+                    String message = String.format("Order %d confirmed for %d items. Processing...", orderId, quantity);
+                    sendNotification(orderId, message);
+                }
             }
         } catch (Exception e) {
             System.err.println("Error processing notification event: " + e.getMessage());
         }
+    }
+
+    private NotificationLog findExistingNotification(Long orderId, String message) {
+        return notificationRepository.findByOrderId(orderId)
+            .stream()
+            .filter(log -> message.equals(log.getMessage()))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private String textValue(JsonNode eventData, String fieldName) {
+        JsonNode value = eventData.get(fieldName);
+        return value == null || value.isNull() ? null : value.asText();
     }
 }
 

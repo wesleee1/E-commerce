@@ -28,7 +28,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $inventoryResp = Invoke-WebRequest -Uri "http://localhost:18081/api/inventory/products" -UseBasicParsing -TimeoutSec 5
     $products = $inventoryResp.Content | ConvertFrom-Json
-    Write-Host "✅ Inventory Service: RUNNING (4 products loaded)" -ForegroundColor Green
+    Write-Host "✅ Inventory Service: RUNNING ($($products.Count) products loaded)" -ForegroundColor Green
     $results["Inventory Service"] = "PASS ✅"
 } catch {
     Write-Host "❌ Inventory Service: FAILED - $($_.Exception.Message)" -ForegroundColor Red
@@ -36,30 +36,30 @@ try {
 }
 
 try {
-    Invoke-WebRequest -Uri "http://localhost:8082/api/payment" -UseBasicParsing -TimeoutSec 5 | Out-Null
+    [void](Invoke-WebRequest -Uri "http://localhost:8082/api/payment/orders" -UseBasicParsing -TimeoutSec 5)
     Write-Host "✅ Payment Service: RUNNING" -ForegroundColor Green
     $results["Payment Service"] = "PASS ✅"
 } catch {
-    Write-Host "⚠️  Payment Service: Endpoint not found (service running in background)" -ForegroundColor Yellow
-    $results["Payment Service"] = "RUNNING ✓"
+    Write-Host "❌ Payment Service: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+    $results["Payment Service"] = "FAIL ❌"
 }
 
 try {
-    Invoke-WebRequest -Uri "http://localhost:8083/api/shipping" -UseBasicParsing -TimeoutSec 5 | Out-Null
+    [void](Invoke-WebRequest -Uri "http://localhost:8083/api/shipping" -UseBasicParsing -TimeoutSec 5)
     Write-Host "✅ Shipping Service: RUNNING" -ForegroundColor Green
     $results["Shipping Service"] = "PASS ✅"
 } catch {
-    Write-Host "⚠️  Shipping Service: Endpoint not found (service running in background)" -ForegroundColor Yellow
-    $results["Shipping Service"] = "RUNNING ✓"
+    Write-Host "❌ Shipping Service: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+    $results["Shipping Service"] = "FAIL ❌"
 }
 
 try {
-    Invoke-WebRequest -Uri "http://localhost:8084/api/notification" -UseBasicParsing -TimeoutSec 5 | Out-Null
+    [void](Invoke-WebRequest -Uri "http://localhost:8084/api/notification/all" -UseBasicParsing -TimeoutSec 5)
     Write-Host "✅ Notification Service: RUNNING" -ForegroundColor Green
     $results["Notification Service"] = "PASS ✅"
 } catch {
-    Write-Host "⚠️  Notification Service: Endpoint not found (service running in background)" -ForegroundColor Yellow
-    $results["Notification Service"] = "RUNNING ✓"
+    Write-Host "❌ Notification Service: FAILED - $($_.Exception.Message)" -ForegroundColor Red
+    $results["Notification Service"] = "FAIL ❌"
 }
 
 # ===== TEST 2: Database Connectivity =====
@@ -70,13 +70,13 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 $invCount = docker exec ecommerce-postgres psql -U postgres -d inventorydb -t -c "SELECT COUNT(*) FROM product;" 2>/dev/null
 Write-Host "✅ Inventory DB: $invCount products in database" -ForegroundColor Green
 
-docker exec ecommerce-postgres psql -U postgres -d paymentdb -t -c "SELECT COUNT(*) FROM orders LIMIT 1;" 2>/dev/null | Out-Null
+[void](docker exec ecommerce-postgres psql -U postgres -d paymentdb -t -c "SELECT COUNT(*) FROM payment_record;" 2>/dev/null)
 Write-Host "✅ Payment DB: Connected" -ForegroundColor Green
 
-docker exec ecommerce-postgres psql -U postgres -d shippingdb -t -c "SELECT COUNT(*) FROM shipments LIMIT 1;" 2>/dev/null | Out-Null
+[void](docker exec ecommerce-postgres psql -U postgres -d shippingdb -t -c "SELECT COUNT(*) FROM shipping_record;" 2>/dev/null)
 Write-Host "✅ Shipping DB: Connected" -ForegroundColor Green
 
-docker exec ecommerce-postgres psql -U postgres -d notificationdb -t -c "SELECT COUNT(*) FROM notifications LIMIT 1;" 2>/dev/null | Out-Null
+[void](docker exec ecommerce-postgres psql -U postgres -d notificationdb -t -c "SELECT COUNT(*) FROM notification_log;" 2>/dev/null)
 Write-Host "✅ Notification DB: Connected" -ForegroundColor Green
 
 $results["Database Connectivity"] = "PASS ✅"
@@ -88,7 +88,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 $topics = docker exec ecommerce-kafka kafka-topics --bootstrap-server kafka:9092 --list 2>/dev/null
 Write-Host "✅ Kafka Topics: $($topics -join ', ')" -ForegroundColor Green
 
-docker exec ecommerce-kafka kafka-broker-api-versions --bootstrap-server kafka:9092 2>&1 | Select-String "id:" | Select-Object -First 1 | Out-Null
+[void](docker exec ecommerce-kafka kafka-broker-api-versions --bootstrap-server kafka:9092 2>&1 | Select-String "id:" | Select-Object -First 1)
 Write-Host "✅ Kafka Brokers: Connected" -ForegroundColor Green
 
 $results["Kafka Topics"] = "PASS ✅"
@@ -102,22 +102,50 @@ $products | ForEach-Object {
     Write-Host "  • $($_.name) - ₹$($_.price) (Stock: $($_.stock))" -ForegroundColor Green
 }
 
-# ===== TEST 5: Stock Reservation Test =====
-Write-Host "`n5️⃣  STOCK RESERVATION TEST" -ForegroundColor Yellow
+# ===== TEST 5: Order Reservation Test =====
+Write-Host "`n5️⃣  ORDER RESERVATION TEST" -ForegroundColor Yellow
 Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor DarkGray
 
 $productId = $products[0].id
 $quantity = 2
-$orderId = [System.DateTime]::Now.Ticks
+$itemTotal = [Math]::Round($products[0].price * $quantity, 2)
+$orderPayload = @{
+    customerId     = 1
+    customerName   = "E2E Tester"
+    customerEmail  = "e2e@example.com"
+    phone          = "0000000000"
+    addressLine    = "Validation Street"
+    city           = "Test City"
+    zipCode        = "000000"
+    amount         = $itemTotal
+    shippingMethod = "standard"
+    items          = @(
+        @{
+            productId   = $productId
+            productName = $products[0].name
+            quantity    = $quantity
+            unitPrice   = $products[0].price
+            lineTotal   = $itemTotal
+        }
+    )
+}
 
 try {
-    $reserveResp = Invoke-WebRequest -Uri "http://localhost:18081/api/inventory/reserve?productId=$productId&quantity=$quantity&orderId=$orderId" -Method POST -UseBasicParsing -TimeoutSec 5
+    $createdOrder = Invoke-RestMethod -Uri "http://localhost:8085/api/order/create" -Method POST -ContentType "application/json" -Body ($orderPayload | ConvertTo-Json -Depth 6) -TimeoutSec 5
+    $reserveResp = Invoke-WebRequest -Uri "http://localhost:18081/api/inventory/reserve-order" -Method POST -ContentType "application/json" -Body (@{
+        orderId        = $createdOrder.id
+        customerName   = $orderPayload.customerName
+        customerEmail  = $orderPayload.customerEmail
+        shippingMethod = $orderPayload.shippingMethod
+        amount         = $orderPayload.amount
+        items          = $orderPayload.items
+    } | ConvertTo-Json -Depth 6) -UseBasicParsing -TimeoutSec 5
     if ($reserveResp.StatusCode -eq 200) {
-        Write-Host "✅ Stock Reserved: $quantity units of '$($products[0].name)' (Product ID: $productId)" -ForegroundColor Green
+        Write-Host "✅ Order Reserved: order #$($createdOrder.id) reserved for '$($products[0].name)'" -ForegroundColor Green
         $results["API Integration"] = "PASS ✅"
     }
 } catch {
-    Write-Host "⚠️  Stock Reservation: $_" -ForegroundColor Yellow
+    Write-Host "⚠️  Order Reservation: $_" -ForegroundColor Yellow
 }
 
 # ===== TEST 6: Kafka Message Monitoring =====

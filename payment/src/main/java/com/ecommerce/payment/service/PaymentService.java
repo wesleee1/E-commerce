@@ -21,6 +21,11 @@ public class PaymentService {
 
     @Transactional
     public PaymentRecord processPayment(Long orderId, double amount, String paymentMethod) {
+        List<PaymentRecord> existingPayments = paymentRepository.findByOrderId(orderId);
+        if (!existingPayments.isEmpty()) {
+            return existingPayments.get(0);
+        }
+
         PaymentRecord record = new PaymentRecord(orderId, paymentMethod, "PAID", amount);
         return paymentRepository.save(record);
     }
@@ -41,9 +46,11 @@ public class PaymentService {
             
             if ("STOCK_RESERVED".equals(eventType)) {
                 Long orderId = eventData.get("orderId").asLong();
-                double amount = eventData.get("amount").asDouble(999.0);
+                double amount = eventData.path("amount").asDouble(0.0);
                 
-                processPayment(orderId, amount, "AUTO");
+                if (amount > 0.0) {
+                    processPayment(orderId, amount, "AUTO");
+                }
             }
         } catch (Exception e) {
             System.err.println("Error processing payment event: " + e.getMessage());
