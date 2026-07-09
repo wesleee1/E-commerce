@@ -36,7 +36,7 @@ try {
 }
 
 try {
-    $paymentResp = Invoke-WebRequest -Uri "http://localhost:8082/api/payment" -UseBasicParsing -TimeoutSec 5
+    Invoke-WebRequest -Uri "http://localhost:8082/api/payment" -UseBasicParsing -TimeoutSec 5 | Out-Null
     Write-Host "✅ Payment Service: RUNNING" -ForegroundColor Green
     $results["Payment Service"] = "PASS ✅"
 } catch {
@@ -45,7 +45,7 @@ try {
 }
 
 try {
-    $shippingResp = Invoke-WebRequest -Uri "http://localhost:8083/api/shipping" -UseBasicParsing -TimeoutSec 5
+    Invoke-WebRequest -Uri "http://localhost:8083/api/shipping" -UseBasicParsing -TimeoutSec 5 | Out-Null
     Write-Host "✅ Shipping Service: RUNNING" -ForegroundColor Green
     $results["Shipping Service"] = "PASS ✅"
 } catch {
@@ -54,7 +54,7 @@ try {
 }
 
 try {
-    $notifyResp = Invoke-WebRequest -Uri "http://localhost:8084/api/notification" -UseBasicParsing -TimeoutSec 5
+    Invoke-WebRequest -Uri "http://localhost:8084/api/notification" -UseBasicParsing -TimeoutSec 5 | Out-Null
     Write-Host "✅ Notification Service: RUNNING" -ForegroundColor Green
     $results["Notification Service"] = "PASS ✅"
 } catch {
@@ -70,13 +70,13 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 $invCount = docker exec ecommerce-postgres psql -U postgres -d inventorydb -t -c "SELECT COUNT(*) FROM product;" 2>/dev/null
 Write-Host "✅ Inventory DB: $invCount products in database" -ForegroundColor Green
 
-$payCount = docker exec ecommerce-postgres psql -U postgres -d paymentdb -t -c "SELECT COUNT(*) FROM orders LIMIT 1;" 2>/dev/null
+docker exec ecommerce-postgres psql -U postgres -d paymentdb -t -c "SELECT COUNT(*) FROM orders LIMIT 1;" 2>/dev/null | Out-Null
 Write-Host "✅ Payment DB: Connected" -ForegroundColor Green
 
-$shipCount = docker exec ecommerce-postgres psql -U postgres -d shippingdb -t -c "SELECT COUNT(*) FROM shipments LIMIT 1;" 2>/dev/null
+docker exec ecommerce-postgres psql -U postgres -d shippingdb -t -c "SELECT COUNT(*) FROM shipments LIMIT 1;" 2>/dev/null | Out-Null
 Write-Host "✅ Shipping DB: Connected" -ForegroundColor Green
 
-$notifCount = docker exec ecommerce-postgres psql -U postgres -d notificationdb -t -c "SELECT COUNT(*) FROM notifications LIMIT 1;" 2>/dev/null
+docker exec ecommerce-postgres psql -U postgres -d notificationdb -t -c "SELECT COUNT(*) FROM notifications LIMIT 1;" 2>/dev/null | Out-Null
 Write-Host "✅ Notification DB: Connected" -ForegroundColor Green
 
 $results["Database Connectivity"] = "PASS ✅"
@@ -88,7 +88,7 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 $topics = docker exec ecommerce-kafka kafka-topics --bootstrap-server kafka:9092 --list 2>/dev/null
 Write-Host "✅ Kafka Topics: $($topics -join ', ')" -ForegroundColor Green
 
-$brokers = docker exec ecommerce-kafka kafka-broker-api-versions --bootstrap-server kafka:9092 2>&1 | Select-String "id:" | Select-Object -First 1
+docker exec ecommerce-kafka kafka-broker-api-versions --bootstrap-server kafka:9092 2>&1 | Select-String "id:" | Select-Object -First 1 | Out-Null
 Write-Host "✅ Kafka Brokers: Connected" -ForegroundColor Green
 
 $results["Kafka Topics"] = "PASS ✅"

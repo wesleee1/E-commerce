@@ -2,7 +2,6 @@ package com.ecommerce.payment.controller;
 
 import com.ecommerce.payment.model.PaymentRecord;
 import com.ecommerce.payment.service.PaymentService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +24,6 @@ public class PaymentController {
         try {
             Long orderId = System.currentTimeMillis();
             double totalAmount = ((Number) orderData.get("totalAmount")).doubleValue();
-            String shippingMethod = (String) orderData.get("shippingMethod");
             
             PaymentRecord record = paymentService.processPayment(orderId, totalAmount, "CARD");
             

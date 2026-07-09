@@ -31,7 +31,7 @@ if ($consumerGroups.Trim().Length -eq 0) {
 # Test 4: Message Count
 Write-Host "`n[MESSAGE THROUGHPUT]" -ForegroundColor Yellow
 Write-Host "────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
-$msgCount = docker exec ecommerce-kafka bash -c "kafka-log-dirs --bootstrap-server kafka:9092 --describe 2>&1 | grep 'ecommerce.events' | head -1"
+docker exec ecommerce-kafka bash -c "kafka-log-dirs --bootstrap-server kafka:9092 --describe 2>&1 | grep 'ecommerce.events' | head -1" | Out-Null
 Write-Host "Topic: ecommerce.events" -ForegroundColor Green
 Write-Host "Status: Messages ready to be consumed" -ForegroundColor Green
 

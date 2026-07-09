@@ -24,8 +24,6 @@ public class NotificationController {
         try {
             Long orderId = ((Number) emailData.get("orderId")).longValue();
             String email = (String) emailData.get("email");
-            String customerName = (String) emailData.get("customerName");
-            String type = (String) emailData.getOrDefault("type", "order");
             
             NotificationLog log = notificationService.sendNotification(orderId, 
                 String.format("Order %d confirmation sent to %s", orderId, email));

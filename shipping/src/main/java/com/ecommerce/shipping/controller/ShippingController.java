@@ -23,9 +23,6 @@ public class ShippingController {
     public ResponseEntity<Map<String, Object>> createShipment(@RequestBody Map<String, Object> shipmentData) {
         try {
             Long orderId = ((Number) shipmentData.get("orderId")).longValue();
-            String customerName = (String) shipmentData.get("customerName");
-            String address = (String) shipmentData.get("address");
-            String city = (String) shipmentData.get("city");
             String shippingMethod = (String) shipmentData.get("shippingMethod");
             
             ShippingRecord record = shippingService.shipOrder(orderId, shippingMethod);
