@@ -63,7 +63,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/orderdb
       DB_USERNAME: postgres
       DB_PASSWORD: Pgroot123!
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8085:8085"
 
@@ -81,7 +81,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/inventorydb
       DB_USERNAME: postgres
       DB_PASSWORD: Pgroot123!
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "18081:8081"
 
@@ -99,7 +99,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/paymentdb
       DB_USERNAME: postgres
       DB_PASSWORD: Pgroot123!
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8082:8082"
 
@@ -117,7 +117,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/shippingdb
       DB_USERNAME: postgres
       DB_PASSWORD: Pgroot123!
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8083:8083"
 
@@ -135,7 +135,7 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/notificationdb
       DB_USERNAME: postgres
       DB_PASSWORD: Pgroot123!
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8084:8084"
 
