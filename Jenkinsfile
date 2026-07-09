@@ -9,9 +9,35 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Inventory') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                dir('inventory') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Payment') {
+            steps {
+                dir('payment') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Notification') {
+            steps {
+                dir('notification') {
+                    sh 'mvn clean package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Shipping') {
+            steps {
+                dir('shipping') {
+                    sh 'mvn clean package -DskipTests'
+                }
             }
         }
 
